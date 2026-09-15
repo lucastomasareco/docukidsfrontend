@@ -4,7 +4,6 @@ import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ChildrenProvider } from '../context/ChildrenContext';
 
-
 function RaizConGuardias() {
   const { session, cargando } = useAuth();
   const segments = useSegments();

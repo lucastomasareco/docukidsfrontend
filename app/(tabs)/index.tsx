@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -51,7 +52,7 @@ export default function Docs() {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [mostrarMenu, setMostrarMenu] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [archivoElegido, setArchivoElegido] = useState<ArchivoElegido | null>(null);
   const [nombreDocumento, setNombreDocumento] = useState('');
@@ -138,12 +139,12 @@ export default function Docs() {
   };
 
   const abrirOpciones = () => {
-    Alert.alert('Agregar documento', '¿Cómo querés agregarlo?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Tomar foto', onPress: tomarFoto },
-      { text: 'Elegir de galería', onPress: elegirDeGaleria },
-      { text: 'Elegir PDF', onPress: elegirPDF },
-    ]);
+    setMostrarMenu(true);
+  };
+
+  const elegirOpcion = (accion: () => void) => {
+    setMostrarMenu(false);
+    accion();
   };
 
   const subirDocumento = async () => {
@@ -305,6 +306,35 @@ export default function Docs() {
           <Text style={styles.fabTexto}>+</Text>
         </TouchableOpacity>
       )}
+
+      <Modal
+        visible={mostrarMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMostrarMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.fondoMenu}
+          activeOpacity={1}
+          onPress={() => setMostrarMenu(false)}
+        >
+          <View style={styles.menu} onStartShouldSetResponder={() => true}>
+            <Text style={styles.menuTitulo}>Agregar documento</Text>
+            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(tomarFoto)}>
+              <Text style={styles.menuOpcionTexto}>Tomar foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirDeGaleria)}>
+              <Text style={styles.menuOpcionTexto}>Elegir de galería</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirPDF)}>
+              <Text style={styles.menuOpcionTexto}>Elegir PDF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuCancelar} onPress={() => setMostrarMenu(false)}>
+              <Text style={styles.menuCancelarTexto}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -376,4 +406,21 @@ const styles = StyleSheet.create({
   botonCancelar: { backgroundColor: '#999' },
   botonGuardar: { backgroundColor: '#1976d2' },
   textoSubiendo: { fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center' },
+  fondoMenu: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menu: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    paddingBottom: 32,
+  },
+  menuTitulo: { fontSize: 15, color: '#999', marginBottom: 8, textAlign: 'center' },
+  menuOpcion: { paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#eee' },
+  menuOpcionTexto: { fontSize: 16, textAlign: 'center', color: '#1976d2' },
+  menuCancelar: { paddingVertical: 14, marginTop: 8 },
+  menuCancelarTexto: { fontSize: 16, textAlign: 'center', color: '#c62828', fontWeight: 'bold' },
 });
