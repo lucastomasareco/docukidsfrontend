@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ChildrenProvider } from '../context/ChildrenContext';
+import { ThemeProvider } from '../context/ThemeContext';
 
 function RaizConGuardias() {
   const { session, cargando } = useAuth();
@@ -35,9 +36,11 @@ function RaizConGuardias() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <ChildrenProvider>
-        <RaizConGuardias />
-      </ChildrenProvider>
+      <ThemeProvider>
+        <ChildrenProvider>
+          <RaizConGuardias />
+        </ChildrenProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

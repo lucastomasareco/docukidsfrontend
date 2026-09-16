@@ -10,7 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useChildren } from '../../context/ChildrenContext';
+import { useTheme } from '../../context/ThemeContext';
 
 function inicial(nombre: string): string {
   return nombre.charAt(0).toUpperCase();
@@ -19,7 +21,7 @@ function inicial(nombre: string): string {
 export default function Hijos() {
   const { hijos, seleccionadoId, cargando, error, seleccionarHijo, cargarHijos, agregarHijo } =
     useChildren();
-
+  const { tema } = useTheme();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -69,9 +71,13 @@ export default function Hijos() {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient 
+      colors={tema.backgroundGradient} 
+      start={{ x: 0, y: 0 }} 
+      end={{ x: 1, y: 1 }} 
+      style={styles.container}
+    >
       <Text style={styles.titulo}>Mis Hijos</Text>
-
       {hijos.length === 0 ? (
         <Text style={styles.vacio}>Todavía no agregaste ningún hijo.</Text>
       ) : (
@@ -82,24 +88,26 @@ export default function Hijos() {
             const seleccionado = item.id === seleccionadoId;
             return (
               <TouchableOpacity
-                style={[styles.card, seleccionado && styles.cardSeleccionada]}
+                style={[
+                  styles.card,
+                  seleccionado && { backgroundColor: tema.bar, borderWidth: 1.5, borderColor: tema.primary },
+                ]}
                 onPress={() => seleccionarHijo(item.id)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.avatar, seleccionado && styles.avatarSeleccionado]}>
+                <View style={[styles.avatar, seleccionado && { backgroundColor: tema.primary }]}>
                   <Text style={styles.avatarTexto}>{inicial(item.name)}</Text>
                 </View>
                 <View>
                   <Text style={styles.nombre}>{item.name}</Text>
                   {item.birth_date && <Text style={styles.fecha}>Nacido: {item.birth_date}</Text>}
                 </View>
-                {seleccionado && <Text style={styles.check}>✓</Text>}
+                {seleccionado && <Text style={[styles.check, { color: tema.primary }]}>✓</Text>}
               </TouchableOpacity>
             );
           }}
         />
       )}
-
       {mostrarFormulario && (
         <View style={styles.formulario}>
           <TextInput
@@ -120,7 +128,7 @@ export default function Hijos() {
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.botonForm, styles.botonGuardar]}
+              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
               onPress={handleAgregar}
               disabled={guardando}
             >
@@ -129,13 +137,15 @@ export default function Hijos() {
           </View>
         </View>
       )}
-
       {!mostrarFormulario && (
-        <TouchableOpacity style={styles.fab} onPress={() => setMostrarFormulario(true)}>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: tema.primary }]}
+          onPress={() => setMostrarFormulario(true)}
+        >
           <Text style={styles.fabTexto}>+</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </LinearGradient>
   );
 }
 

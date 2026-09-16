@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
+import { useTheme } from '../../context/ThemeContext';
 
 // Nombres de meses/días en español para el calendario (react-native-calendars
 // viene en inglés por defecto).
@@ -53,14 +55,13 @@ const REGEX_HORA = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
 export default function Calendario() {
   const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
+  const { tema } = useTheme();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
-
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [tituloNuevo, setTituloNuevo] = useState('');
   const [fechaNueva, setFechaNueva] = useState(fechaDeHoy());
@@ -97,17 +98,17 @@ export default function Calendario() {
   const diasMarcados = useMemo(() => {
     const marcas: Record<string, any> = {};
     turnos.forEach((t) => {
-      marcas[t.date] = { marked: true, dotColor: '#1976d2' };
+      marcas[t.date] = { marked: true, dotColor: tema.primary };
     });
     if (diaSeleccionado) {
       marcas[diaSeleccionado] = {
         ...(marcas[diaSeleccionado] || {}),
         selected: true,
-        selectedColor: '#1976d2',
+        selectedColor: tema.primary,
       };
     }
     return marcas;
-  }, [turnos, diaSeleccionado]);
+  }, [turnos, diaSeleccionado, tema.primary]);
 
   // Lista a mostrar: si hay un día tocado, solo los turnos de ese día.
   // Si no, todos, ordenados por fecha y hora.
@@ -145,7 +146,6 @@ export default function Calendario() {
       Alert.alert('Hora inválida', 'Escribila con el formato HH:MM (24hs), ej: 14:30.');
       return;
     }
-
     setGuardando(true);
     try {
       await api.post('/appointments', {
@@ -182,7 +182,7 @@ export default function Calendario() {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <Text style={styles.titulo}>Calendario</Text>
       <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
 
@@ -190,7 +190,7 @@ export default function Calendario() {
         current={fechaDeHoy()}
         markedDates={diasMarcados}
         onDayPress={(dia) => setDiaSeleccionado(dia.dateString === diaSeleccionado ? null : dia.dateString)}
-        theme={{ todayTextColor: '#1976d2', selectedDayBackgroundColor: '#1976d2', arrowColor: '#1976d2' }}
+        theme={{ todayTextColor: tema.primary, selectedDayBackgroundColor: tema.primary, arrowColor: tema.primary }}
       />
 
       {diaSeleccionado && (
@@ -220,7 +220,7 @@ export default function Calendario() {
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.fechaBox}>
+              <View style={[styles.fechaBox, { backgroundColor: tema.primary }]}>
                 <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
                 <Text style={styles.fechaBoxMes}>{item.date.slice(5, 7)}</Text>
               </View>
@@ -272,7 +272,7 @@ export default function Calendario() {
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.botonForm, styles.botonGuardar]}
+              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
               onPress={crearTurno}
               disabled={guardando}
             >
@@ -286,11 +286,11 @@ export default function Calendario() {
       )}
 
       {!mostrarFormulario && (
-        <TouchableOpacity style={styles.fab} onPress={abrirFormulario}>
+        <TouchableOpacity style={[styles.fab, { backgroundColor: tema.primary }]} onPress={abrirFormulario}>
           <Text style={styles.fabTexto}>+</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </LinearGradient>
   );
 }
 

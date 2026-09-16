@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 const ICONOS: Record<string, { activo: any; inactivo: any }> = {
   index: { activo: 'document-text', inactivo: 'document-text-outline' },
@@ -19,11 +20,13 @@ function crearIcono(pantalla: keyof typeof ICONOS) {
 }
 
 export default function TabsLayout() {
+  const { tema } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#1976d2',
-        tabBarInactiveTintColor: '#757575',
+        tabBarActiveTintColor: tema.primary,
+        tabBarInactiveTintColor: tema.textSecondary,
         tabBarLabelStyle: { fontSize: 13, fontWeight: '600' },
       }}
     >

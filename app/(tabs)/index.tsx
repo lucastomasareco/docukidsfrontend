@@ -14,8 +14,10 @@ import {
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
+import { useTheme } from '../../context/ThemeContext';
 
 type Documento = {
   id: number;
@@ -47,6 +49,7 @@ const TEXTO_POR_ESTADO: Record<Documento['status'], string> = {
 
 export default function Docs() {
   const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
+  const { tema } = useTheme();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -153,7 +156,6 @@ export default function Docs() {
       Alert.alert('Falta el nombre', 'Escribí un nombre para el documento (ej. "DNI").');
       return;
     }
-
     const formData = new FormData();
     formData.append('file', {
       uri: archivoElegido.uri,
@@ -216,8 +218,9 @@ export default function Docs() {
 
   const esImagen = archivoElegido?.mimeType.startsWith('image/');
 
+  // --- CAMBIO PRINCIPAL: Apertura con LinearGradient ---
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <Text style={styles.titulo}>Mis Documentos</Text>
       <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
 
@@ -288,7 +291,7 @@ export default function Docs() {
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.botonForm, styles.botonGuardar]}
+              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
               onPress={subirDocumento}
               disabled={subiendo}
             >
@@ -302,7 +305,7 @@ export default function Docs() {
       )}
 
       {!mostrarFormulario && (
-        <TouchableOpacity style={styles.fab} onPress={abrirOpciones}>
+        <TouchableOpacity style={[styles.fab, { backgroundColor: tema.primary }]} onPress={abrirOpciones}>
           <Text style={styles.fabTexto}>+</Text>
         </TouchableOpacity>
       )}
@@ -335,7 +338,7 @@ export default function Docs() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </LinearGradient> // --- CAMBIO PRINCIPAL: Cierre con LinearGradient ---
   );
 }
 
@@ -368,7 +371,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1976d2',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
