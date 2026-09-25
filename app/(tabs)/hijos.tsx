@@ -78,9 +78,22 @@ export default function Hijos() {
       style={styles.container}
     >
       <Text style={styles.titulo}>Mis Hijos</Text>
-      {hijos.length === 0 ? (
-        <Text style={styles.vacio}>Todavía no agregaste ningún hijo.</Text>
-      ) : (
+
+      {hijos.length === 0 && (
+        <Text style={styles.textoGuiaSuave}>Creá el perfil de tu hijo</Text>
+      )}
+
+      {!mostrarFormulario && (
+        <TouchableOpacity
+          style={[styles.botonAgendarGrande, { backgroundColor: tema.primary }]}
+          onPress={() => setMostrarFormulario(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.botonAgendarGrandeTexto}>👶  Registrar hijo</Text>
+        </TouchableOpacity>
+      )}
+
+      {hijos.length === 0 ? null : (
         <FlatList
           data={hijos}
           keyExtractor={(item) => String(item.id)}
@@ -137,14 +150,6 @@ export default function Hijos() {
           </View>
         </View>
       )}
-      {!mostrarFormulario && (
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: tema.primary }]}
-          onPress={() => setMostrarFormulario(true)}
-        >
-          <Text style={styles.fabTexto}>+</Text>
-        </TouchableOpacity>
-      )}
     </LinearGradient>
   );
 }
@@ -156,7 +161,18 @@ const styles = StyleSheet.create({
   textoError: { textAlign: 'center', color: '#c62828', marginBottom: 12 },
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  vacio: { color: '#666', marginTop: 20 },
+  textoGuiaSuave: { fontSize: 14, color: '#777', marginTop: -10, marginBottom: 14 },
+  botonAgendarGrande: {
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  botonAgendarGrandeTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -180,19 +196,6 @@ const styles = StyleSheet.create({
   nombre: { fontSize: 16, fontWeight: '600' },
   fecha: { fontSize: 13, color: '#666' },
   check: { marginLeft: 'auto', fontSize: 18, color: '#1976d2', fontWeight: 'bold' },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1976d2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  fabTexto: { color: '#fff', fontSize: 28, lineHeight: 30 },
   formulario: {
     position: 'absolute',
     left: 16,

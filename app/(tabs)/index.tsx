@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
@@ -61,6 +62,38 @@ export default function Docs() {
   const [nombreDocumento, setNombreDocumento] = useState('');
   const [subiendo, setSubiendo] = useState(false);
 
+  // null = todavía no sabemos (evita el "flash" del botón); true/false = confirmado.
+  const [googleConectado, setGoogleConectado] = useState<boolean | null>(null);
+  const [conectandoGoogle, setConectandoGoogle] = useState(false);
+
+  const verificarGoogle = useCallback(async () => {
+    try {
+      const respuesta = await api.get('/auth/google/status');
+      setGoogleConectado(Boolean(respuesta.data.conectado));
+    } catch {
+      // Si falla la consulta (ej. el servidor recién está "despertando" en
+      // Render), no rompemos la pantalla: simplemente no mostramos el botón
+      // todavía y lo volvemos a intentar la próxima vez que se enfoque Docs.
+    }
+  }, []);
+
+  const conectarGoogle = async () => {
+    setConectandoGoogle(true);
+    try {
+      const respuesta = await api.get('/auth/google/url');
+      const url: string = respuesta.data.url;
+      await WebBrowser.openAuthSessionAsync(url, 'docukids://');
+      // No confiamos en el resultado del navegador (en desarrollo no siempre
+      // vuelve solo a la app): volvemos a preguntarle al backend cómo quedó.
+      await verificarGoogle();
+    } catch (e: any) {
+      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
+      Alert.alert('No se pudo iniciar la conexión', detalle);
+    } finally {
+      setConectandoGoogle(false);
+    }
+  };
+
   const cargarDocumentos = useCallback(async () => {
     if (!seleccionadoId) {
       setDocumentos([]);
@@ -83,7 +116,8 @@ export default function Docs() {
   useFocusEffect(
     useCallback(() => {
       cargarDocumentos();
-    }, [cargarDocumentos])
+      verificarGoogle();
+    }, [cargarDocumentos, verificarGoogle])
   );
 
   const cerrarFormulario = () => {
@@ -224,6 +258,33 @@ export default function Docs() {
       <Text style={styles.titulo}>Mis Documentos</Text>
       <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
 
+      {!mostrarFormulario && googleConectado === false && (
+        <View style={styles.bloqueGoogle}>
+          <TouchableOpacity
+            style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
+            onPress={conectarGoogle}
+            disabled={conectandoGoogle}
+          >
+            <Text style={styles.botonGoogleTexto}>
+              {conectandoGoogle ? 'Conectando...' : 'Conectar con Google'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.ayudaGoogle}>
+            Necesario para subir documentos, agendar turnos y recibir avisos por email.
+          </Text>
+        </View>
+      )}
+
+      {!mostrarFormulario && (
+        <TouchableOpacity
+          style={[styles.botonSubirGrande, { backgroundColor: tema.primary }]}
+          onPress={abrirOpciones}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
+        </TouchableOpacity>
+      )}
+
       {cargando ? (
         <View style={styles.centroFlex}>
           <ActivityIndicator size="large" />
@@ -243,6 +304,10 @@ export default function Docs() {
           <FlatList
             data={documentos}
             keyExtractor={(item) => String(item.id)}
+            style={styles.listaDocumentos}
+            showsVerticalScrollIndicator
+            persistentScrollbar
+            indicatorStyle="black"
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.card}
@@ -304,12 +369,6 @@ export default function Docs() {
         </View>
       )}
 
-      {!mostrarFormulario && (
-        <TouchableOpacity style={[styles.fab, { backgroundColor: tema.primary }]} onPress={abrirOpciones}>
-          <Text style={styles.fabTexto}>+</Text>
-        </TouchableOpacity>
-      )}
-
       <Modal
         visible={mostrarMenu}
         transparent
@@ -352,6 +411,23 @@ const styles = StyleSheet.create({
   subtitulo: { fontSize: 15, color: '#666', marginBottom: 12 },
   ayuda: { fontSize: 12, color: '#999', marginBottom: 8 },
   vacio: { color: '#666', marginTop: 20 },
+  bloqueGoogle: { alignItems: 'center', marginBottom: 16 },
+  botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, alignSelf: 'stretch', alignItems: 'center' },
+  botonGoogleTexto: { color: '#fff', fontWeight: 'bold' },
+  ayudaGoogle: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 6 },
+  botonSubirGrande: {
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  botonSubirGrandeTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  listaDocumentos: { flex: 1 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,18 +440,6 @@ const styles = StyleSheet.create({
   nombre: { fontSize: 16, fontWeight: '600' },
   estado: { fontSize: 13, color: '#666' },
   botonTexto: { color: '#fff', fontWeight: 'bold' },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  fabTexto: { color: '#fff', fontSize: 28, lineHeight: 30 },
   formulario: {
     position: 'absolute',
     left: 16,

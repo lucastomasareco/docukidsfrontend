@@ -15,6 +15,8 @@ type ChildrenContextType = {
   seleccionarHijo: (id: number) => void;
   cargarHijos: () => Promise<void>;
   agregarHijo: (nombre: string) => Promise<{ error: string | null }>;
+  editarHijo: (id: number, nombre: string) => Promise<{ error: string | null }>;
+  eliminarHijo: (id: number) => Promise<{ error: string | null }>;
 };
 
 const ChildrenContext = createContext<ChildrenContextType | undefined>(undefined);
@@ -59,13 +61,51 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
     [cargarHijos]
   );
 
+  const editarHijo = useCallback(
+    async (id: number, nombre: string) => {
+      try {
+        await api.put(`/children/${id}`, { name: nombre });
+        await cargarHijos();
+        return { error: null };
+      } catch (e: any) {
+        const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
+        return { error: detalle };
+      }
+    },
+    [cargarHijos]
+  );
+
+  const eliminarHijo = useCallback(
+    async (id: number) => {
+      try {
+        await api.delete(`/children/${id}`);
+        await cargarHijos();
+        return { error: null };
+      } catch (e: any) {
+        const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
+        return { error: detalle };
+      }
+    },
+    [cargarHijos]
+  );
+
   const seleccionarHijo = useCallback((id: number) => {
     setSeleccionadoId(id);
   }, []);
 
   return (
     <ChildrenContext.Provider
-      value={{ hijos, seleccionadoId, cargando, error, seleccionarHijo, cargarHijos, agregarHijo }}
+      value={{
+        hijos,
+        seleccionadoId,
+        cargando,
+        error,
+        seleccionarHijo,
+        cargarHijos,
+        agregarHijo,
+        editarHijo,
+        eliminarHijo,
+      }}
     >
       {children}
     </ChildrenContext.Provider>
