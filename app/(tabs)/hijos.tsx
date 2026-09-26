@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useChildren } from '../../context/ChildrenContext';
+import { useChildren, type Hijo } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
 
 function inicial(nombre: string): string {
@@ -19,12 +19,22 @@ function inicial(nombre: string): string {
 }
 
 export default function Hijos() {
-  const { hijos, seleccionadoId, cargando, error, seleccionarHijo, cargarHijos, agregarHijo } =
-    useChildren();
+  const {
+    hijos,
+    seleccionadoId,
+    cargando,
+    error,
+    seleccionarHijo,
+    cargarHijos,
+    agregarHijo,
+    editarHijo,
+    eliminarHijo,
+  } = useChildren();
   const { tema } = useTheme();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [hijoEditando, setHijoEditando] = useState<Hijo | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,20 +42,59 @@ export default function Hijos() {
     }, [cargarHijos])
   );
 
-  const handleAgregar = async () => {
+  const cerrarFormulario = () => {
+    setMostrarFormulario(false);
+    setNombreNuevo('');
+    setHijoEditando(null);
+  };
+
+  const handleGuardar = async () => {
     if (!nombreNuevo.trim()) {
       Alert.alert('Falta el nombre', 'Escribí un nombre antes de guardar.');
       return;
     }
     setGuardando(true);
-    const { error } = await agregarHijo(nombreNuevo.trim());
+    const { error } = hijoEditando
+      ? await editarHijo(hijoEditando.id, nombreNuevo.trim())
+      : await agregarHijo(nombreNuevo.trim());
     setGuardando(false);
     if (error) {
       Alert.alert('No se pudo guardar', error);
       return;
     }
-    setNombreNuevo('');
-    setMostrarFormulario(false);
+    cerrarFormulario();
+  };
+
+  const abrirRenombrar = (hijo: Hijo) => {
+    setHijoEditando(hijo);
+    setNombreNuevo(hijo.name);
+    setMostrarFormulario(true);
+  };
+
+  const confirmarEliminar = (hijo: Hijo) => {
+    Alert.alert(
+      `Eliminar a ${hijo.name}`,
+      'Esto borra también sus documentos y sus turnos guardados. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await eliminarHijo(hijo.id);
+            if (error) Alert.alert('No se pudo eliminar', error);
+          },
+        },
+      ]
+    );
+  };
+
+  const abrirMenu = (hijo: Hijo) => {
+    Alert.alert(hijo.name, '¿Qué querés hacer?', [
+      { text: 'Cambiar nombre', onPress: () => abrirRenombrar(hijo) },
+      { text: 'Eliminar hijo', style: 'destructive', onPress: () => confirmarEliminar(hijo) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   if (cargando && hijos.length === 0) {
@@ -93,6 +142,10 @@ export default function Hijos() {
         </TouchableOpacity>
       )}
 
+      {hijos.length > 0 && (
+        <Text style={styles.ayuda}>Mantené presionado un hijo para cambiarle el nombre o eliminarlo.</Text>
+      )}
+
       {hijos.length === 0 ? null : (
         <FlatList
           data={hijos}
@@ -106,6 +159,7 @@ export default function Hijos() {
                   seleccionado && { backgroundColor: tema.bar, borderWidth: 1.5, borderColor: tema.primary },
                 ]}
                 onPress={() => seleccionarHijo(item.id)}
+                onLongPress={() => abrirMenu(item)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.avatar, seleccionado && { backgroundColor: tema.primary }]}>
@@ -123,6 +177,9 @@ export default function Hijos() {
       )}
       {mostrarFormulario && (
         <View style={styles.formulario}>
+          <Text style={styles.formularioTitulo}>
+            {hijoEditando ? 'Cambiar nombre' : 'Nuevo hijo'}
+          </Text>
           <TextInput
             style={styles.input}
             placeholder="Nombre del hijo/a"
@@ -133,16 +190,14 @@ export default function Hijos() {
           <View style={styles.filaBotones}>
             <TouchableOpacity
               style={[styles.botonForm, styles.botonCancelar]}
-              onPress={() => {
-                setMostrarFormulario(false);
-                setNombreNuevo('');
-              }}
+              onPress={cerrarFormulario}
+              disabled={guardando}
             >
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
-              onPress={handleAgregar}
+              onPress={handleGuardar}
               disabled={guardando}
             >
               <Text style={styles.botonTexto}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
@@ -162,6 +217,7 @@ const styles = StyleSheet.create({
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
   textoGuiaSuave: { fontSize: 14, color: '#777', marginTop: -10, marginBottom: 14 },
+  ayuda: { fontSize: 12, color: '#999', marginBottom: 8 },
   botonAgendarGrande: {
     paddingVertical: 18,
     borderRadius: 12,
@@ -210,6 +266,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12 },
+  formularioTitulo: { fontSize: 15, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   filaBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   botonCancelar: { backgroundColor: '#999' },
