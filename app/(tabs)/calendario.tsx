@@ -190,7 +190,20 @@ export default function Calendario() {
         current={fechaDeHoy()}
         markedDates={diasMarcados}
         onDayPress={(dia) => setDiaSeleccionado(dia.dateString === diaSeleccionado ? null : dia.dateString)}
-        theme={{ todayTextColor: tema.primary, selectedDayBackgroundColor: tema.primary, arrowColor: tema.primary }}
+        theme={{
+          todayTextColor: '#1F1F1F',
+          todayBackgroundColor: tema.bar,
+          dayTextColor: '#1F1F1F',
+          monthTextColor: '#1F1F1F',
+          textSectionTitleColor: '#3F3F3F',
+          textDisabledColor: '#8A8A8A',
+          selectedDayBackgroundColor: tema.primary,
+          selectedDayTextColor: '#1F1F1F',
+          arrowColor: '#1F1F1F',
+          textDayFontSize: 17,
+          textMonthFontSize: 19,
+          textDayHeaderFontSize: 15,
+        }}
       />
 
       {diaSeleccionado && (
@@ -206,7 +219,7 @@ export default function Calendario() {
       ) : error ? (
         <View style={styles.centroFlex}>
           <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-          <TouchableOpacity style={styles.botonReintentar} onPress={cargarTurnos}>
+          <TouchableOpacity style={[styles.botonReintentar, { backgroundColor: tema.primary }]} onPress={cargarTurnos}>
             <Text style={styles.botonTexto}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -239,6 +252,7 @@ export default function Calendario() {
       {mostrarFormulario && (
         <View style={styles.formulario}>
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder='Título (ej. "Pediatra")'
             value={tituloNuevo}
@@ -246,18 +260,21 @@ export default function Calendario() {
             autoFocus
           />
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder="Fecha (AAAA-MM-DD)"
             value={fechaNueva}
             onChangeText={setFechaNueva}
           />
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder="Hora (HH:MM, ej. 14:30)"
             value={horaNueva}
             onChangeText={setHoraNueva}
           />
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder="Notas (opcional)"
             value={notasNuevas}
@@ -298,13 +315,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 60 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
-  textoError: { textAlign: 'center', color: '#c62828' },
+  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  titulo: { fontSize: 24, fontWeight: 'bold' },
-  subtitulo: { fontSize: 15, color: '#666', marginBottom: 12 },
-  vacio: { color: '#666', marginTop: 20, textAlign: 'center' },
+  titulo: { fontSize: 26, fontWeight: 'bold' },
+  subtitulo: { fontSize: 17, color: '#3F3F3F', marginBottom: 12 },
+  vacio: { fontSize: 16, color: '#3F3F3F', marginTop: 20, textAlign: 'center' },
   verTodos: { paddingVertical: 10 },
-  verTodosTexto: { color: '#1976d2', fontSize: 13, textAlign: 'center' },
+  verTodosTexto: { color: '#0D47A1', fontSize: 15, textAlign: 'center' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,11 +339,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  fechaBoxTexto: { color: '#fff', fontSize: 16, fontWeight: 'bold', lineHeight: 18 },
-  fechaBoxMes: { color: '#dce8f7', fontSize: 10 },
-  nombre: { fontSize: 16, fontWeight: '600' },
-  estado: { fontSize: 13, color: '#666' },
-  botonTexto: { color: '#fff', fontWeight: 'bold' },
+  fechaBoxTexto: { color: '#1F1F1F', fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
+  fechaBoxMes: { color: '#1F1F1F', fontSize: 12 },
+  nombre: { fontSize: 18, fontWeight: '600' },
+  estado: { fontSize: 15, color: '#3F3F3F' },
+  botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
   fab: {
     position: 'absolute',
     right: 20,
@@ -339,7 +356,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 4,
   },
-  fabTexto: { color: '#fff', fontSize: 28, lineHeight: 30 },
+  fabTexto: { color: '#1F1F1F', fontSize: 28, lineHeight: 30 },
   formulario: {
     position: 'absolute',
     left: 16,
@@ -353,10 +370,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
   },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 10 },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 10, fontSize: 16, color: '#1F1F1F' },
   filaBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
-  botonCancelar: { backgroundColor: '#999' },
+  botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
-  textoGuardando: { fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center' },
+  textoGuardando: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
 });

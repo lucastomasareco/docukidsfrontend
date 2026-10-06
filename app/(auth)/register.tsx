@@ -35,15 +35,15 @@ export default function Register() {
     <View style={styles.container}>
       <Text style={styles.titulo}>Crear cuenta</Text>
 
-      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword} secureTextEntry />
+      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword} secureTextEntry />
 
       <TouchableOpacity style={styles.boton} onPress={handleRegister} disabled={cargando}>
         <Text style={styles.botonTexto}>{cargando ? 'Creando...' : 'Registrarme'}</Text>
       </TouchableOpacity>
 
       <Link href="/(auth)/login" style={styles.link}>
-        <Text>¿Ya tenés cuenta? Iniciá sesión</Text>
+        <Text style={{ fontSize: 16, color: '#1F1F1F' }}>¿Ya tenés cuenta? Iniciá sesión</Text>
       </Link>
     </View>
   );
@@ -51,9 +51,9 @@ export default function Register() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },
-  titulo: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12 },
+  titulo: { fontSize: 30, fontWeight: 'bold', textAlign: 'center', marginBottom: 32 },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
   boton: { backgroundColor: '#1976d2', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },
-  botonTexto: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  botonTexto: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   link: { marginTop: 20, textAlign: 'center' },
 });

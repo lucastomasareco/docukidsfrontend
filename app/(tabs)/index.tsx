@@ -292,7 +292,7 @@ export default function Docs() {
       ) : error ? (
         <View style={styles.centroFlex}>
           <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-          <TouchableOpacity style={styles.botonReintentar} onPress={cargarDocumentos}>
+          <TouchableOpacity style={[styles.botonReintentar, { backgroundColor: tema.primary }]} onPress={cargarDocumentos}>
             <Text style={styles.botonTexto}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -341,6 +341,7 @@ export default function Docs() {
             </View>
           )}
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder='Nombre del documento (ej. "DNI")'
             value={nombreDocumento}
@@ -405,16 +406,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 60 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
-  textoError: { textAlign: 'center', color: '#c62828' },
+  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  titulo: { fontSize: 24, fontWeight: 'bold' },
-  subtitulo: { fontSize: 15, color: '#666', marginBottom: 12 },
-  ayuda: { fontSize: 12, color: '#999', marginBottom: 8 },
-  vacio: { color: '#666', marginTop: 20 },
+  titulo: { fontSize: 26, fontWeight: 'bold' },
+  subtitulo: { fontSize: 17, color: '#3F3F3F', marginBottom: 12 },
+  ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
+  vacio: { fontSize: 16, color: '#3F3F3F', marginTop: 20 },
   bloqueGoogle: { alignItems: 'center', marginBottom: 16 },
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, alignSelf: 'stretch', alignItems: 'center' },
-  botonGoogleTexto: { color: '#fff', fontWeight: 'bold' },
-  ayudaGoogle: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 6 },
+  botonGoogleTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
+  ayudaGoogle: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   botonSubirGrande: {
     paddingVertical: 18,
     borderRadius: 12,
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
-  botonSubirGrandeTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  botonSubirGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
   listaDocumentos: { flex: 1 },
   card: {
     flexDirection: 'row',
@@ -437,9 +438,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   punto: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
-  nombre: { fontSize: 16, fontWeight: '600' },
-  estado: { fontSize: 13, color: '#666' },
-  botonTexto: { color: '#fff', fontWeight: 'bold' },
+  nombre: { fontSize: 18, fontWeight: '600' },
+  estado: { fontSize: 15, color: '#3F3F3F' },
+  botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
   formulario: {
     position: 'absolute',
     left: 16,
@@ -465,13 +466,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   iconoPDF: { fontSize: 28, marginBottom: 4 },
-  nombrePDF: { fontSize: 13, color: '#555' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12 },
+  nombrePDF: { fontSize: 15, color: '#1F1F1F' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
   filaBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
-  botonCancelar: { backgroundColor: '#999' },
+  botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
-  textoSubiendo: { fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center' },
+  textoSubiendo: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
   fondoMenu: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -484,9 +485,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  menuTitulo: { fontSize: 15, color: '#999', marginBottom: 8, textAlign: 'center' },
+  menuTitulo: { fontSize: 17, color: '#3F3F3F', marginBottom: 8, textAlign: 'center' },
   menuOpcion: { paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#eee' },
-  menuOpcionTexto: { fontSize: 16, textAlign: 'center', color: '#1976d2' },
+  menuOpcionTexto: { fontSize: 18, textAlign: 'center', color: '#0D47A1' },
   menuCancelar: { paddingVertical: 14, marginTop: 8 },
-  menuCancelarTexto: { fontSize: 16, textAlign: 'center', color: '#c62828', fontWeight: 'bold' },
+  menuCancelarTexto: { fontSize: 18, textAlign: 'center', color: '#c62828', fontWeight: 'bold' },
 });

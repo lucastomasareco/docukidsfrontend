@@ -27,7 +27,7 @@ export default function TabsLayout() {
       screenOptions={{
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
-        tabBarLabelStyle: { fontSize: 13, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 15, fontWeight: '600' },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Docs', tabBarIcon: crearIcono('index') }} />

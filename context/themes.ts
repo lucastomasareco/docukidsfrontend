@@ -20,8 +20,8 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#F5ECD7',
     primary: '#7DD4D4',
     bar: '#F0F4F5',
-    textPrimary: '#5A5A5A',
-    textSecondary: '#9A9A9A',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
   },
   durazno: {
     id: 'durazno',
@@ -30,8 +30,8 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#FDF5F0',
     primary: '#F4A89A',
     bar: '#FDF0EC',
-    textPrimary: '#5A5A5A',
-    textSecondary: '#9A9A9A',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
   },
   lavanda: {
     id: 'lavanda',
@@ -40,8 +40,8 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#EDE8F8',
     primary: '#B8A9D4',
     bar: '#F3EFFB',
-    textPrimary: '#5A5A5A',
-    textSecondary: '#9A9A9A',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
   },
   menta: {
     id: 'menta',
@@ -50,8 +50,8 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#FFFFFF',
     primary: '#7DD4B4',
     bar: '#D4F0F8',
-    textPrimary: '#4A4A4A',
-    textSecondary: '#8A8A8A',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
   },
   arcoiris: {
     id: 'arcoiris',
@@ -60,8 +60,8 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#F5F0D0',
     primary: '#F4B4B4',
     bar: '#FADADD',
-    textPrimary: '#6A6A7A',
-    textSecondary: '#A0A0B0',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
   },
 };
 

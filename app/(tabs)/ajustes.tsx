@@ -80,13 +80,13 @@ export default function Ajustes() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 60, paddingBottom: 60 },
-  texto: { fontSize: 18, color: '#666' },
-  email: { fontSize: 14, color: '#999' },
+  texto: { fontSize: 20, color: '#3F3F3F' },
+  email: { fontSize: 16, color: '#3F3F3F' },
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  ayuda: { fontSize: 12, color: '#999', textAlign: 'center', maxWidth: 260, marginTop: -8 },
+  ayuda: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', maxWidth: 260, marginTop: -8 },
   separador: { width: '100%', height: 1, backgroundColor: '#eee', marginVertical: 8 },
-  tituloSeccion: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  subtituloSeccion: { fontSize: 13, color: '#999', marginTop: -12 },
+  tituloSeccion: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F' },
+  subtituloSeccion: { fontSize: 15, color: '#3F3F3F', marginTop: -12 },
   filaTemas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 20, marginTop: 4 },
   opcionTema: { alignItems: 'center', width: 72 },
   circuloTema: {
@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   circuloTemaSeleccionado: { borderColor: '#333' },
-  check: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
-  nombreTema: { fontSize: 12, color: '#555', marginTop: 6, textAlign: 'center' },
+  check: { color: '#1F1F1F', fontSize: 22, fontWeight: 'bold' },
+  nombreTema: { fontSize: 14, color: '#1F1F1F', marginTop: 6, textAlign: 'center' },
   boton: { backgroundColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 8 },
-  botonTexto: { color: '#fff', fontWeight: 'bold' },
+  botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
 });

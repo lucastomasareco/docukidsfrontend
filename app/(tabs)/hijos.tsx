@@ -112,7 +112,7 @@ export default function Hijos() {
     return (
       <View style={styles.centro}>
         <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-        <TouchableOpacity style={styles.botonReintentar} onPress={cargarHijos}>
+        <TouchableOpacity style={[styles.botonReintentar, { backgroundColor: tema.primary }]} onPress={cargarHijos}>
           <Text style={styles.botonTexto}>Reintentar</Text>
         </TouchableOpacity>
       </View>
@@ -181,6 +181,7 @@ export default function Hijos() {
             {hijoEditando ? 'Cambiar nombre' : 'Nuevo hijo'}
           </Text>
           <TextInput
+            placeholderTextColor="#5F5F5F"
             style={styles.input}
             placeholder="Nombre del hijo/a"
             value={nombreNuevo}
@@ -212,12 +213,12 @@ export default function Hijos() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 60 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  textoCargando: { textAlign: 'center', marginTop: 12, color: '#666' },
-  textoError: { textAlign: 'center', color: '#c62828', marginBottom: 12 },
+  textoCargando: { fontSize: 16, textAlign: 'center', marginTop: 12, color: '#3F3F3F' },
+  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c', marginBottom: 12 },
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  textoGuiaSuave: { fontSize: 14, color: '#777', marginTop: -10, marginBottom: 14 },
-  ayuda: { fontSize: 12, color: '#999', marginBottom: 8 },
+  titulo: { fontSize: 26, fontWeight: 'bold', marginBottom: 16 },
+  textoGuiaSuave: { fontSize: 16, color: '#3F3F3F', marginTop: -10, marginBottom: 14 },
+  ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
   botonAgendarGrande: {
     paddingVertical: 18,
     borderRadius: 12,
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
-  botonAgendarGrandeTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  botonAgendarGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,10 +249,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarSeleccionado: { backgroundColor: '#1976d2' },
-  avatarTexto: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-  nombre: { fontSize: 16, fontWeight: '600' },
-  fecha: { fontSize: 13, color: '#666' },
-  check: { marginLeft: 'auto', fontSize: 18, color: '#1976d2', fontWeight: 'bold' },
+  avatarTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 20 },
+  nombre: { fontSize: 18, fontWeight: '600' },
+  fecha: { fontSize: 15, color: '#3F3F3F' },
+  check: { marginLeft: 'auto', fontSize: 20, color: '#1976d2', fontWeight: 'bold' },
   formulario: {
     position: 'absolute',
     left: 16,
@@ -265,11 +266,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
   },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12 },
-  formularioTitulo: { fontSize: 15, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
+  formularioTitulo: { fontSize: 17, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
   filaBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
-  botonCancelar: { backgroundColor: '#999' },
+  botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
-  botonTexto: { color: '#fff', fontWeight: 'bold' },
+  botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
 });
