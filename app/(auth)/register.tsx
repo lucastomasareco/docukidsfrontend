@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Register() {
   const { registrarse } = useAuth();
@@ -37,7 +38,7 @@ export default function Register() {
       <Text style={styles.titulo}>Crear cuenta</Text>
 
       <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword} secureTextEntry />
+      <CampoContrasena placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword}  />
 
       <TouchableOpacity style={styles.boton} onPress={handleRegister} disabled={cargando}>
         <Text style={styles.botonTexto}>{cargando ? 'Creando...' : 'Registrarme'}</Text>

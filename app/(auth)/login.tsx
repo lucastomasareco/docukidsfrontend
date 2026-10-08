@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Login() {
   const { iniciarSesion } = useAuth();
@@ -27,7 +28,7 @@ export default function Login() {
       <Text style={styles.subtitulo}>Iniciá sesión</Text>
 
       <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
+      <CampoContrasena placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword}  />
 
       <TouchableOpacity style={styles.boton} onPress={handleLogin} disabled={cargando}>
         <Text style={styles.botonTexto}>{cargando ? 'Ingresando...' : 'Ingresar'}</Text>

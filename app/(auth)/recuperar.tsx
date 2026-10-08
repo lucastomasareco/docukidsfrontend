@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import CampoContrasena from '../../components/CampoContrasena';
 
 // Recuperar contraseña en 2 pasos, sin links ni deep links:
 //   1) la persona escribe su email y le llega un código de 6 dígitos;
@@ -101,21 +102,21 @@ export default function Recuperar() {
               keyboardType="number-pad"
               maxLength={10}
             />
-            <TextInput
+            <CampoContrasena
               placeholderTextColor="#5F5F5F"
               style={styles.input}
               placeholder="Contraseña nueva (mín. 6 caracteres)"
               value={nueva}
               onChangeText={setNueva}
-              secureTextEntry
+              
             />
-            <TextInput
+            <CampoContrasena
               placeholderTextColor="#5F5F5F"
               style={styles.input}
               placeholder="Repetí la contraseña nueva"
               value={repetir}
               onChangeText={setRepetir}
-              secureTextEntry
+              
             />
             <TouchableOpacity style={styles.boton} onPress={cambiar} disabled={cargando}>
               <Text style={styles.botonTexto}>{cargando ? 'Cambiando...' : 'Cambiar contraseña'}</Text>

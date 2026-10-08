@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
+import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
@@ -208,29 +209,29 @@ export default function Ajustes() {
         <View style={styles.fondoModal}>
           <View style={styles.tarjetaModal}>
             <Text style={styles.tituloModal}>Cambiar contraseña</Text>
-            <TextInput
+            <CampoContrasena
               placeholderTextColor="#5F5F5F"
               style={styles.inputModal}
               placeholder="Contraseña actual"
               value={claveActual}
               onChangeText={setClaveActual}
-              secureTextEntry
+              
             />
-            <TextInput
+            <CampoContrasena
               placeholderTextColor="#5F5F5F"
               style={styles.inputModal}
               placeholder="Contraseña nueva (mín. 6 caracteres)"
               value={claveNueva}
               onChangeText={setClaveNueva}
-              secureTextEntry
+              
             />
-            <TextInput
+            <CampoContrasena
               placeholderTextColor="#5F5F5F"
               style={styles.inputModal}
               placeholder="Repetí la contraseña nueva"
               value={claveRepetir}
               onChangeText={setClaveRepetir}
-              secureTextEntry
+              
             />
             <View style={styles.filaModal}>
               <TouchableOpacity

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   Modal,
+  Linking,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
@@ -54,7 +56,13 @@ const TEXTO_POR_ESTADO: Record<Documento['status'], string> = {
   sin_vencimiento: 'No vence',
 };
 
+// Id del usuario al que ya le ofrecimos conectar Google en esta sesión de la app.
+// Está fuera del componente para no repetir el aviso cada vez que se cambia de pestaña.
+let avisoGoogleParaUsuario: string | null = null;
+
 export default function Docs() {
+  const { session } = useAuth();
+  const usuarioId = session?.user.id ?? null;
   const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
   const { tema } = useTheme();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
@@ -67,6 +75,10 @@ export default function Docs() {
   const [archivoElegido, setArchivoElegido] = useState<ArchivoElegido | null>(null);
   const [nombreDocumento, setNombreDocumento] = useState('');
   const [subiendo, setSubiendo] = useState(false);
+  // Documento que se está editando (se abre con mantener presionado).
+  const [editando, setEditando] = useState<Documento | null>(null);
+  const [nombreEditado, setNombreEditado] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   // Documento recién subido que está esperando que el usuario confirme su fecha.
   const [porConfirmar, setPorConfirmar] = useState<{
     docId: number;
@@ -105,6 +117,24 @@ export default function Docs() {
       setConectandoGoogle(false);
     }
   };
+
+  // Conexión automática: si la persona todavía no conectó Google, se lo ofrecemos
+  // una sola vez apenas entra. Google siempre exige que la persona toque
+  // "Permitir" en su propia pantalla; esto solo le ahorra buscar el botón.
+  useEffect(() => {
+    if (googleConectado !== false || !usuarioId || conectandoGoogle) return;
+    if (avisoGoogleParaUsuario === usuarioId) return;
+    avisoGoogleParaUsuario = usuarioId;
+    Alert.alert(
+      'Conectá tu cuenta de Google',
+      'Docukids guarda tus documentos en tu Drive, agenda los turnos en tu Calendar y te avisa por correo cuando algo vence. Para eso necesita tu permiso.\n\nVas a ver una pantalla de Google: tocá "Permitir" y volvé a la app.',
+      [
+        { text: 'Más tarde', style: 'cancel' },
+        { text: 'Conectar ahora', onPress: conectarGoogle },
+      ]
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleConectado, usuarioId, conectandoGoogle]);
 
   const cargarDocumentos = useCallback(async () => {
     if (!seleccionadoId) {
@@ -234,6 +264,55 @@ export default function Docs() {
     }
   };
 
+  // Tocar un documento lo abre (Drive o el visor del teléfono).
+  const abrirDocumento = async (doc: Documento) => {
+    if (!doc.drive_link) {
+      Alert.alert('No se puede abrir', 'Este documento no tiene un enlace a Drive.');
+      return;
+    }
+    try {
+      await Linking.openURL(doc.drive_link);
+    } catch {
+      Alert.alert('No se pudo abrir', 'No se pudo abrir el documento. Probá de nuevo.');
+    }
+  };
+
+  const abrirEdicion = (doc: Documento) => {
+    setEditando(doc);
+    setNombreEditado(doc.name);
+  };
+
+  const cerrarEdicion = () => {
+    if (guardandoEdicion) return;
+    setEditando(null);
+    setNombreEditado('');
+  };
+
+  const guardarEdicion = async () => {
+    if (!editando) return;
+    const nombre = nombreEditado.trim();
+    if (!nombre) {
+      Alert.alert('Falta el nombre', 'Escribí un nombre para el documento.');
+      return;
+    }
+    if (nombre === editando.name) {
+      cerrarEdicion();
+      return;
+    }
+    setGuardandoEdicion(true);
+    try {
+      await api.patch(`/documents/${editando.id}`, { name: nombre });
+      setGuardandoEdicion(false);
+      setEditando(null);
+      setNombreEditado('');
+      cargarDocumentos();
+    } catch (e: any) {
+      setGuardandoEdicion(false);
+      const detalle = e?.response?.data?.detail;
+      Alert.alert('No se pudo guardar', typeof detalle === 'string' ? detalle : e?.message || 'Error desconocido');
+    }
+  };
+
   const borrarDocumento = (doc: Documento) => {
     Alert.alert('Borrar documento', `¿Seguro que querés borrar "${doc.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -243,6 +322,8 @@ export default function Docs() {
         onPress: async () => {
           try {
             await api.delete(`/documents/${doc.id}`);
+            setEditando(null);
+            setNombreEditado('');
             cargarDocumentos();
           } catch (e: any) {
             const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
@@ -294,7 +375,7 @@ export default function Docs() {
         </View>
       )}
 
-      {!mostrarFormulario && (
+      {!mostrarFormulario && !editando && (
         <TouchableOpacity
           style={[styles.botonSubirGrande, { backgroundColor: tema.primary }]}
           onPress={abrirOpciones}
@@ -319,7 +400,7 @@ export default function Docs() {
         <Text style={styles.vacio}>{hijoSeleccionado?.name} todavía no tiene documentos.</Text>
       ) : (
         <>
-          <Text style={styles.ayuda}>Mantené presionado un documento para borrarlo.</Text>
+          <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre o borrarlo.</Text>
           <FlatList
             data={documentos}
             keyExtractor={(item) => String(item.id)}
@@ -330,8 +411,10 @@ export default function Docs() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.card}
-                onLongPress={() => borrarDocumento(item)}
+                onPress={() => abrirDocumento(item)}
+                onLongPress={() => abrirEdicion(item)}
                 activeOpacity={0.7}
+                accessibilityHint="Tocá para abrir. Mantené presionado para editar o borrar"
               >
                 <View style={[styles.punto, { backgroundColor: COLOR_POR_ESTADO[item.status] }]} />
                 <View style={{ flex: 1 }}>
@@ -386,6 +469,43 @@ export default function Docs() {
           {subiendo && (
             <Text style={styles.textoSubiendo}>Subiendo a Drive y leyendo la fecha, puede tardar...</Text>
           )}
+        </FormularioSuperior>
+      )}
+
+      {editando && (
+        <FormularioSuperior onCerrar={guardandoEdicion ? undefined : cerrarEdicion}>
+          <Text style={styles.tituloEdicion}>Editar documento</Text>
+          <TextInput
+            placeholderTextColor="#5F5F5F"
+            style={styles.input}
+            placeholder="Nombre del documento"
+            value={nombreEditado}
+            onChangeText={setNombreEditado}
+            autoFocus
+          />
+          <View style={styles.filaBotones}>
+            <TouchableOpacity
+              style={[styles.botonForm, styles.botonCancelar]}
+              onPress={cerrarEdicion}
+              disabled={guardandoEdicion}
+            >
+              <Text style={styles.botonTexto}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
+              onPress={guardarEdicion}
+              disabled={guardandoEdicion}
+            >
+              <Text style={styles.botonTexto}>{guardandoEdicion ? 'Guardando...' : 'Guardar'}</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.botonEliminar}
+            onPress={() => borrarDocumento(editando)}
+            disabled={guardandoEdicion}
+          >
+            <Text style={styles.botonEliminarTexto}>Eliminar documento</Text>
+          </TouchableOpacity>
         </FormularioSuperior>
       )}
 
@@ -504,6 +624,9 @@ const styles = StyleSheet.create({
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
+  tituloEdicion: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
+  botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
+  botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
   textoSubiendo: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
   fondoMenu: {
     flex: 1,
