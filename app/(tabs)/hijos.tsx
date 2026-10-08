@@ -13,6 +13,7 @@ import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useChildren, type Hijo } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
+import FormularioSuperior from '../../components/FormularioSuperior';
 
 function inicial(nombre: string): string {
   return nombre.charAt(0).toUpperCase();
@@ -176,7 +177,7 @@ export default function Hijos() {
         />
       )}
       {mostrarFormulario && (
-        <View style={styles.formulario}>
+        <FormularioSuperior>
           <Text style={styles.formularioTitulo}>
             {hijoEditando ? 'Cambiar nombre' : 'Nuevo hijo'}
           </Text>
@@ -204,7 +205,7 @@ export default function Hijos() {
               <Text style={styles.botonTexto}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </FormularioSuperior>
       )}
     </LinearGradient>
   );

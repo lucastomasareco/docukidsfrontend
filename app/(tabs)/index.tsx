@@ -20,6 +20,8 @@ import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
+import FormularioSuperior from '../../components/FormularioSuperior';
+import { fechaCorta } from '../../lib/fechas';
 
 type Documento = {
   id: number;
@@ -336,7 +338,7 @@ export default function Docs() {
                   <Text style={styles.nombre}>{item.name}</Text>
                   <Text style={styles.estado}>
                     {TEXTO_POR_ESTADO[item.status]}
-                    {item.expiry_date ? ` · ${item.expiry_date}` : ''}
+                    {item.expiry_date ? ` · ${fechaCorta(item.expiry_date)}` : ''}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -346,7 +348,7 @@ export default function Docs() {
       )}
 
       {mostrarFormulario && archivoElegido && (
-        <View style={styles.formulario}>
+        <FormularioSuperior>
           {esImagen ? (
             <Image source={{ uri: archivoElegido.uri }} style={styles.previsualizacion} />
           ) : (
@@ -384,7 +386,7 @@ export default function Docs() {
           {subiendo && (
             <Text style={styles.textoSubiendo}>Subiendo a Drive y leyendo la fecha, puede tardar...</Text>
           )}
-        </View>
+        </FormularioSuperior>
       )}
 
       <Modal
