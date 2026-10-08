@@ -19,12 +19,14 @@ import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
+import ConfirmarFecha from '../../components/ConfirmarFecha';
 
 type Documento = {
   id: number;
   name: string;
   expiry_date: string | null;
-  status: 'vigente' | 'proximo' | 'vencido' | 'sin_fecha';
+  no_expiry: boolean;
+  status: 'vigente' | 'proximo' | 'vencido' | 'sin_fecha' | 'sin_vencimiento';
   drive_link: string | null;
 };
 
@@ -39,6 +41,7 @@ const COLOR_POR_ESTADO: Record<Documento['status'], string> = {
   proximo: '#f57c00',
   vencido: '#c62828',
   sin_fecha: '#9e9e9e',
+  sin_vencimiento: '#2e7d32', // verde: "No vence" es una buena noticia, no una alerta
 };
 
 const TEXTO_POR_ESTADO: Record<Documento['status'], string> = {
@@ -46,6 +49,7 @@ const TEXTO_POR_ESTADO: Record<Documento['status'], string> = {
   proximo: 'Vence pronto',
   vencido: 'Vencido',
   sin_fecha: 'Sin fecha',
+  sin_vencimiento: 'No vence',
 };
 
 export default function Docs() {
@@ -61,6 +65,12 @@ export default function Docs() {
   const [archivoElegido, setArchivoElegido] = useState<ArchivoElegido | null>(null);
   const [nombreDocumento, setNombreDocumento] = useState('');
   const [subiendo, setSubiendo] = useState(false);
+  // Documento recién subido que está esperando que el usuario confirme su fecha.
+  const [porConfirmar, setPorConfirmar] = useState<{
+    docId: number;
+    nombre: string;
+    fecha: string | null;
+  } | null>(null);
 
   // null = todavía no sabemos (evita el "flash" del botón); true/false = confirmado.
   const [googleConectado, setGoogleConectado] = useState<boolean | null>(null);
@@ -201,12 +211,19 @@ export default function Docs() {
 
     setSubiendo(true);
     try {
-      await api.post('/upload', formData, {
+      const respuesta = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 120000,
       });
+      const nombreSubido = nombreDocumento.trim();
       cerrarFormulario();
       cargarDocumentos();
+      // Pantalla de confirmación de fecha (ver Guía: PATCH /documents/{doc_id}).
+      setPorConfirmar({
+        docId: respuesta.data.doc_id,
+        nombre: nombreSubido,
+        fecha: respuesta.data.expiry_date ?? null,
+      });
     } catch (e: any) {
       const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
       Alert.alert('No se pudo subir', detalle);
@@ -398,6 +415,19 @@ export default function Docs() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {porConfirmar && (
+        <ConfirmarFecha
+          visible
+          docId={porConfirmar.docId}
+          nombreDocumento={porConfirmar.nombre}
+          fechaDetectada={porConfirmar.fecha}
+          onTerminar={() => {
+            setPorConfirmar(null);
+            cargarDocumentos();
+          }}
+        />
+      )}
     </LinearGradient> // --- CAMBIO PRINCIPAL: Cierre con LinearGradient ---
   );
 }
