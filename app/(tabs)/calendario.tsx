@@ -497,7 +497,7 @@ export default function Calendario() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 60 },
+  container: { flex: 1, padding: 16, paddingTop: 30 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },

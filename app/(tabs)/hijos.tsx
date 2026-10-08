@@ -212,7 +212,7 @@ export default function Hijos() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 60 },
+  container: { flex: 1, padding: 16, paddingTop: 30 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   textoCargando: { fontSize: 16, textAlign: 'center', marginTop: 12, color: '#3F3F3F' },
   textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c', marginBottom: 12 },

@@ -435,7 +435,7 @@ export default function Docs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 60 },
+  container: { flex: 1, padding: 16, paddingTop: 30 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
   textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },

@@ -128,7 +128,7 @@ export default function Ajustes() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 60, paddingBottom: 60 },
+  container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 30, paddingBottom: 60 },
   texto: { fontSize: 20, color: '#3F3F3F' },
   email: { fontSize: 16, color: '#3F3F3F' },
   estadoGoogle: { fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
