@@ -1,4 +1,4 @@
-﻿import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -6,7 +6,7 @@ import { ChildrenProvider } from '../context/ChildrenContext';
 import { ThemeProvider } from '../context/ThemeContext';
 
 function RaizConGuardias() {
-  const { session, cargando } = useAuth();
+  const { session, cargando, enRecuperacion } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -17,10 +17,10 @@ function RaizConGuardias() {
 
     if (!session && !enGrupoAuth) {
       router.replace('/(auth)/login');
-    } else if (session && enGrupoAuth) {
+    } else if (session && enGrupoAuth && !enRecuperacion) {
       router.replace('/(tabs)');
     }
-  }, [session, cargando, segments]);
+  }, [session, cargando, segments, enRecuperacion]);
 
   if (cargando) {
     return (

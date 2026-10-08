@@ -33,6 +33,10 @@ export default function Login() {
         <Text style={styles.botonTexto}>{cargando ? 'Ingresando...' : 'Ingresar'}</Text>
       </TouchableOpacity>
 
+      <Link href="/(auth)/recuperar" style={styles.link}>
+        <Text style={{ fontSize: 16, color: '#1F1F1F', textDecorationLine: 'underline' }}>¿Olvidaste tu contraseña?</Text>
+      </Link>
+
       <Link href="/(auth)/register" style={styles.link}>
         <Text style={{ fontSize: 16, color: '#1F1F1F' }}>¿No tenés cuenta? Registrate</Text>
       </Link>

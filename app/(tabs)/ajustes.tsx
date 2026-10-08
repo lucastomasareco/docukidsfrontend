@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, AppState, Modal, TextInput } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,10 +9,16 @@ import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
 
 export default function Ajustes() {
-  const { cerrarSesion, eliminarCuenta, session } = useAuth();
+  const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
   const [conectando, setConectando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  // Formulario "Cambiar contraseña"
+  const [claveVisible, setClaveVisible] = useState(false);
+  const [claveActual, setClaveActual] = useState('');
+  const [claveNueva, setClaveNueva] = useState('');
+  const [claveRepetir, setClaveRepetir] = useState('');
+  const [guardandoClave, setGuardandoClave] = useState(false);
   // null = todavía no sabemos; true/false = lo que dice el backend.
   const [conectado, setConectado] = useState<boolean | null>(null);
   // true mientras el usuario está en el navegador autorizando Google.
@@ -77,6 +83,37 @@ export default function Ajustes() {
       esperandoGoogle.current = false;
       setConectando(false);
     }
+  };
+
+  const cerrarFormularioClave = () => {
+    setClaveVisible(false);
+    setClaveActual('');
+    setClaveNueva('');
+    setClaveRepetir('');
+  };
+
+  const guardarClave = async () => {
+    if (!claveActual) {
+      Alert.alert('Falta la contraseña actual', 'Escribí tu contraseña actual.');
+      return;
+    }
+    if (claveNueva.length < 6) {
+      Alert.alert('Contraseña muy corta', 'La nueva tiene que tener al menos 6 caracteres.');
+      return;
+    }
+    if (claveNueva !== claveRepetir) {
+      Alert.alert('No coinciden', 'Las dos contraseñas nuevas tienen que ser iguales.');
+      return;
+    }
+    setGuardandoClave(true);
+    const { error } = await cambiarContrasena(claveActual, claveNueva);
+    setGuardandoClave(false);
+    if (error) {
+      Alert.alert('No se pudo cambiar la contraseña', error);
+      return;
+    }
+    cerrarFormularioClave();
+    Alert.alert('Listo', 'Tu contraseña se cambió.');
   };
 
   const confirmarEliminarCuenta = () => {
@@ -150,6 +187,10 @@ export default function Ajustes() {
           ))}
         </View>
         
+        <TouchableOpacity style={[styles.boton, { backgroundColor: tema.primary }]} onPress={() => setClaveVisible(true)}>
+          <Text style={styles.botonTexto}>Cambiar contraseña</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.boton, { backgroundColor: tema.primary }]} onPress={cerrarSesion}>
           <Text style={styles.botonTexto}>Cerrar sesión</Text>
         </TouchableOpacity>
@@ -162,6 +203,54 @@ export default function Ajustes() {
           <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={claveVisible} transparent animationType="fade" onRequestClose={cerrarFormularioClave} statusBarTranslucent>
+        <View style={styles.fondoModal}>
+          <View style={styles.tarjetaModal}>
+            <Text style={styles.tituloModal}>Cambiar contraseña</Text>
+            <TextInput
+              placeholderTextColor="#5F5F5F"
+              style={styles.inputModal}
+              placeholder="Contraseña actual"
+              value={claveActual}
+              onChangeText={setClaveActual}
+              secureTextEntry
+            />
+            <TextInput
+              placeholderTextColor="#5F5F5F"
+              style={styles.inputModal}
+              placeholder="Contraseña nueva (mín. 6 caracteres)"
+              value={claveNueva}
+              onChangeText={setClaveNueva}
+              secureTextEntry
+            />
+            <TextInput
+              placeholderTextColor="#5F5F5F"
+              style={styles.inputModal}
+              placeholder="Repetí la contraseña nueva"
+              value={claveRepetir}
+              onChangeText={setClaveRepetir}
+              secureTextEntry
+            />
+            <View style={styles.filaModal}>
+              <TouchableOpacity
+                style={[styles.botonModal, { borderWidth: 2, borderColor: tema.primary }]}
+                onPress={cerrarFormularioClave}
+                disabled={guardandoClave}
+              >
+                <Text style={styles.botonTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.botonModal, { backgroundColor: tema.primary }]}
+                onPress={guardarClave}
+                disabled={guardandoClave}
+              >
+                <Text style={styles.botonTexto}>{guardandoClave ? 'Guardando…' : 'Guardar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -194,5 +283,11 @@ const styles = StyleSheet.create({
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
   // Rojo fijo (#c62828), como el resto de las acciones destructivas de la app.
   botonEliminar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 4 },
+  fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 },
+  tarjetaModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+  tituloModal: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F', marginBottom: 14 },
+  inputModal: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
+  filaModal: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  botonModal: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
 });
