@@ -9,9 +9,10 @@ import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
 
 export default function Ajustes() {
-  const { cerrarSesion, session } = useAuth();
+  const { cerrarSesion, eliminarCuenta, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
   const [conectando, setConectando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   // null = todavía no sabemos; true/false = lo que dice el backend.
   const [conectado, setConectado] = useState<boolean | null>(null);
   // true mientras el usuario está en el navegador autorizando Google.
@@ -78,6 +79,36 @@ export default function Ajustes() {
     }
   };
 
+  const confirmarEliminarCuenta = () => {
+    Alert.alert(
+      '¿Eliminar tu cuenta?',
+      'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
+        'Esto no se puede deshacer.\n\n' +
+        'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
+        'Los eventos de Google Calendar tampoco. ' +
+        'Dejarás de recibir avisos por email.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar cuenta', style: 'destructive', onPress: ejecutarEliminarCuenta },
+      ]
+    );
+  };
+
+  const ejecutarEliminarCuenta = async () => {
+    setEliminando(true);
+    const { error } = await eliminarCuenta();
+    if (error) {
+      setEliminando(false);
+      Alert.alert('No se pudo eliminar la cuenta', error);
+      return;
+    }
+    // Sesión cerrada: la app vuelve sola a la pantalla de login.
+    Alert.alert(
+      'Cuenta eliminada',
+      'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.'
+    );
+  };
+
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -122,6 +153,14 @@ export default function Ajustes() {
         <TouchableOpacity style={[styles.boton, { backgroundColor: tema.primary }]} onPress={cerrarSesion}>
           <Text style={styles.botonTexto}>Cerrar sesión</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.botonEliminar}
+          onPress={confirmarEliminarCuenta}
+          disabled={eliminando}
+        >
+          <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </LinearGradient>
   );
@@ -153,4 +192,7 @@ const styles = StyleSheet.create({
   nombreTema: { fontSize: 14, color: '#1F1F1F', marginTop: 6, textAlign: 'center' },
   boton: { backgroundColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 8 },
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
+  // Rojo fijo (#c62828), como el resto de las acciones destructivas de la app.
+  botonEliminar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 4 },
+  botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
 });

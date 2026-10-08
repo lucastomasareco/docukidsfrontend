@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 export type Hijo = {
   id: number;
@@ -26,6 +27,17 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { session } = useAuth();
+
+  // Sin sesión (cerrar sesión o cuenta eliminada) no debe quedar nada de la
+  // persona anterior en memoria.
+  useEffect(() => {
+    if (!session) {
+      setHijos([]);
+      setSeleccionadoId(null);
+      setError(null);
+    }
+  }, [session]);
 
   const cargarHijos = useCallback(async () => {
     setCargando(true);
