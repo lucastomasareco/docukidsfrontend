@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  Animated,
   RefreshControl,
   TouchableOpacity,
   TextInput,
@@ -54,6 +54,9 @@ function mensajeDeError(e: any): string {
   return e?.message || 'Error desconocido';
 }
 
+// Alto estimado de una tarjeta (con su margen) hasta que se mide de verdad.
+const ALTURA_ESTIMADA = 82;
+
 export default function Calendario() {
   const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
   const { tema } = useTheme();
@@ -73,6 +76,11 @@ export default function Calendario() {
   const [eliminando, setEliminando] = useState(false);
   // null = formulario de turno NUEVO; con un turno = formulario de EDICIÓN.
   const [turnoEditando, setTurnoEditando] = useState<Turno | null>(null);
+
+  // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [alturaLista, setAlturaLista] = useState(0);
+  const [alturas, setAlturas] = useState<Record<number, number>>({});
 
   // esRefresco = true cuando viene del gesto de deslizar hacia abajo: en ese caso
   // la lista NO se reemplaza por el spinner grande (se ve el circulito de arriba)
@@ -145,13 +153,33 @@ export default function Calendario() {
     });
   }, [turnos, diaSeleccionado]);
 
-  const abrirFormulario = () => {
+  // Formulario de turno NUEVO. Sin fecha: usa el día filtrado o, si no hay, hoy.
+  const abrirFormulario = (fecha?: string) => {
     setTurnoEditando(null);
     setTituloNuevo('');
     setHoraNueva('');
     setNotasNuevas('');
-    setFechaNueva(diaSeleccionado || fechaDeHoy());
+    // Si se agenda en un día distinto al filtrado, se quita el filtro para que el
+    // turno nuevo se vea en la lista al guardarlo.
+    if (fecha && fecha !== diaSeleccionado) setDiaSeleccionado(null);
+    setFechaNueva(fecha || diaSeleccionado || fechaDeHoy());
     setMostrarFormulario(true);
+  };
+
+  // Tocar un día:
+  //  - si ya estaba filtrado, se quita el filtro;
+  //  - si tiene turnos, se muestran solo los de ese día;
+  //  - si NO tiene turnos, se abre directo el formulario para agendar uno ese día.
+  const alTocarDia = (fecha: string) => {
+    if (fecha === diaSeleccionado) {
+      setDiaSeleccionado(null);
+      return;
+    }
+    if (turnos.some((t) => t.date === fecha)) {
+      setDiaSeleccionado(fecha);
+    } else {
+      abrirFormulario(fecha);
+    }
   };
 
   // Abre el mismo formulario, cargado con los datos del turno tocado.
@@ -263,10 +291,12 @@ export default function Calendario() {
       <Text style={styles.titulo}>Calendario</Text>
       <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
 
+      {/* El calendario queda FIJO: solo se desliza la lista de turnos de abajo. */}
       <Calendar
         current={fechaDeHoy()}
         markedDates={diasMarcados}
-        onDayPress={(dia) => setDiaSeleccionado(dia.dateString === diaSeleccionado ? null : dia.dateString)}
+        onDayPress={(dia) => alTocarDia(dia.dateString)}
+        onDayLongPress={(dia) => abrirFormulario(dia.dateString)}
         theme={{
           todayTextColor: '#1F1F1F',
           todayBackgroundColor: tema.bar,
@@ -288,15 +318,21 @@ export default function Calendario() {
           <Text style={styles.verTodosTexto}>Mostrando solo el {fechaCorta(diaSeleccionado)} · Ver todos</Text>
         </TouchableOpacity>
       )}
+      {!cargando && !error && (
+        <Text style={styles.pista}>
+          Tocá un día libre para agendar un turno. Mantené presionado un turno para editarlo o eliminarlo.
+        </Text>
+      )}
 
-      {cargando ? (
-        <View style={styles.centroFlex}>
-          <ActivityIndicator size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={error ? [] : turnosAMostrar}
-          keyExtractor={(item) => String(item.id)}
+      <View style={{ flex: 1 }} onLayout={(e) => setAlturaLista(e.nativeEvent.layout.height)}>
+        <Animated.FlatList
+          data={cargando || error ? [] : turnosAMostrar}
+          keyExtractor={(item: Turno) => String(item.id)}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            useNativeDriver: true,
+          })}
           refreshControl={
             <RefreshControl
               refreshing={refrescando}
@@ -305,10 +341,13 @@ export default function Calendario() {
               tintColor={tema.primary}
             />
           }
-          // Con la lista vacía (o con error) también se puede deslizar para actualizar.
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
           ListEmptyComponent={
-            error ? (
+            cargando ? (
+              <View style={styles.centroFlex}>
+                <ActivityIndicator size="large" />
+              </View>
+            ) : error ? (
               <View style={styles.centroFlex}>
                 <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
                 <TouchableOpacity
@@ -324,39 +363,71 @@ export default function Calendario() {
               </Text>
             )
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }: { item: Turno; index: number }) => {
             const pasado = esTurnoPasado(item.date, item.time);
+
+            // Posición de la tarjeta dentro de la lista (suma de las alturas de las anteriores).
+            const viewport = alturaLista || 400;
+            const h = Math.min(alturas[item.id] ?? ALTURA_ESTIMADA, viewport);
+            let y = 0;
+            for (let j = 0; j < index; j++) y += alturas[turnosAMostrar[j].id] ?? ALTURA_ESTIMADA;
+            const zona = h * 0.8; // tramo en el que se va volviendo transparente
+            // scrollY -> [invisible abajo, visible, visible, invisible arriba]
+            const entrada = [y + h - viewport - zona, y + h - viewport, y, y + zona];
+            const opacity = scrollY.interpolate({
+              inputRange: entrada,
+              outputRange: [0, 1, 1, 0],
+              extrapolate: 'clamp',
+            });
+            const scale = scrollY.interpolate({
+              inputRange: entrada,
+              outputRange: [0.92, 1, 1, 0.92],
+              extrapolate: 'clamp',
+            });
+
             return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => abrirEdicion(item)}
-              activeOpacity={0.7}
-              accessibilityLabel={`Editar turno ${item.title}`}
-            >
-              <View
-                style={[
-                  styles.fechaBox,
-                  { backgroundColor: pasado ? colorConOpacidad(tema.primary, 0.5) : tema.primary },
-                ]}
+              <Animated.View
+                style={{ opacity, transform: [{ scale }] }}
+                onLayout={(e) => {
+                  const alto = Math.round(e.nativeEvent.layout.height);
+                  setAlturas((prev) => (prev[item.id] === alto ? prev : { ...prev, [item.id]: alto }));
+                }}
               >
-                <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
-                <Text style={styles.fechaBoxMes}>{item.date.slice(5, 7)}/{item.date.slice(0, 4)}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nombre}>{item.title}</Text>
-                <Text style={styles.estado}>
-                  {item.time ? horaCorta(item.time) : 'Todo el día'}
-                  {item.notes ? ` · ${item.notes}` : ''}
-                </Text>
-              </View>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.card}
+                  onLongPress={() => abrirEdicion(item)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Turno ${item.title}`}
+                  accessibilityHint="Mantené presionado para editar o eliminar"
+                >
+                  <View
+                    style={[
+                      styles.fechaBox,
+                      { backgroundColor: pasado ? colorConOpacidad(tema.primary, 0.5) : tema.primary },
+                    ]}
+                  >
+                    <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
+                    <Text style={styles.fechaBoxMes}>{item.date.slice(5, 7)}/{item.date.slice(0, 4)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nombre}>{item.title}</Text>
+                    <Text style={styles.estado}>
+                      {item.time ? horaCorta(item.time) : 'Todo el día'}
+                      {item.notes ? ` · ${item.notes}` : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
             );
           }}
         />
-      )}
+      </View>
 
       {mostrarFormulario && (
-        <FormularioSuperior key={turnoEditando ? `editar-${turnoEditando.id}` : 'nuevo'}>
+        <FormularioSuperior
+          key={turnoEditando ? `editar-${turnoEditando.id}` : 'nuevo'}
+          onCerrar={guardando || eliminando ? undefined : cerrarFormulario}
+        >
           <Text style={styles.tituloFormulario}>{turnoEditando ? 'Editar turno' : 'Nuevo turno'}</Text>
           <TextInput
             placeholderTextColor="#5F5F5F"
@@ -417,7 +488,7 @@ export default function Calendario() {
       )}
 
       {!mostrarFormulario && (
-        <TouchableOpacity style={[styles.fab, { backgroundColor: tema.primary }]} onPress={abrirFormulario}>
+        <TouchableOpacity style={[styles.fab, { backgroundColor: tema.primary }]} onPress={() => abrirFormulario()}>
           <Text style={styles.fabTexto}>+</Text>
         </TouchableOpacity>
       )}
@@ -427,6 +498,7 @@ export default function Calendario() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 60 },
+  pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
   textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },

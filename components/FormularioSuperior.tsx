@@ -1,15 +1,26 @@
 import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 // Tarjeta de formulario FIJA ARRIBA (nunca más del 45 % de la altura de la
 // pantalla). Como el teclado ocupa la mitad de abajo, nunca la tapa y no hace
 // falta calcular nada. Si el formulario es largo (Calendario), se desplaza
 // dentro de la tarjeta. Se usa en Docs, Calendario e Hijos.
 // 
-export default function FormularioSuperior({ children }: { children: ReactNode }) {
+// Si se le pasa onCerrar, tocar FUERA de la tarjeta cierra el formulario.
+// Sin onCerrar se comporta como antes (Docs e Hijos no cambian).
+type Props = { children: ReactNode; onCerrar?: () => void };
+
+export default function FormularioSuperior({ children, onCerrar }: Props) {
   const { height } = useWindowDimensions();
   return (
     <View style={styles.capa}>
+      {onCerrar && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onCerrar}
+          accessibilityLabel="Cerrar el formulario"
+        />
+      )}
       <ScrollView
         style={[styles.tarjeta, { maxHeight: height * 0.45 }]}
         contentContainerStyle={styles.contenido}
