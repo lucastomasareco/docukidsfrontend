@@ -150,7 +150,6 @@ export default function Ajustes() {
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.texto}>Ajustes</Text>
         <Text style={styles.email}>{session?.user.email}</Text>
         
         <Text style={styles.estadoGoogle}>
@@ -257,8 +256,7 @@ export default function Ajustes() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 30, paddingBottom: 60 },
-  texto: { fontSize: 20, color: '#3F3F3F' },
+  container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 16, paddingBottom: 60 },
   email: { fontSize: 16, color: '#3F3F3F' },
   estadoGoogle: { fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
