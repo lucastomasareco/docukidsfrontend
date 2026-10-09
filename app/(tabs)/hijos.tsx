@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
+import EstadoVacio from '../../components/EstadoVacio';
 import FormularioSuperior from '../../components/FormularioSuperior';
 
 function inicial(nombre: string): string {
@@ -144,9 +145,6 @@ export default function Hijos() {
       end={{ x: 1, y: 1 }} 
       style={styles.container}
     >
-      {hijos.length === 0 && (
-        <Text style={styles.textoGuiaSuave}>Creá el perfil de tu hijo</Text>
-      )}
 
       {!mostrarFormulario && (
         <TouchableOpacity
@@ -162,7 +160,15 @@ export default function Hijos() {
         <Text style={styles.ayuda}>Mantené presionado un hijo para cambiarle el nombre o eliminarlo.</Text>
       )}
 
-      {hijos.length === 0 ? null : (
+      {hijos.length === 0 ? (
+        !mostrarFormulario && (
+          <EstadoVacio
+            icono="people-outline"
+            titulo="Todavía no agregaste a ningún hijo"
+            mensaje="Tocá Registrar hijo para crear su perfil. Después podés guardar sus documentos y turnos, y agregar a todos los hijos que quieras."
+          />
+        )
+      ) : (
         <FlatList
           data={hijos}
           keyExtractor={(item) => String(item.id)}

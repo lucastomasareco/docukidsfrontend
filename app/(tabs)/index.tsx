@@ -10,7 +10,7 @@ import {
   Modal,
   Linking,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
@@ -22,6 +22,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
+import EstadoVacio from '../../components/EstadoVacio';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
@@ -68,6 +69,7 @@ export default function Docs() {
   const { hijos, seleccionadoId, cargando: cargandoHijos, error: errorHijos, cargarHijos } = useChildren();
   const { tema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
+  const router = useRouter();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -362,11 +364,23 @@ export default function Docs() {
     );
   }
 
+  // La carga funcionó y no hay ningún hijo: invitamos a agregar el primero.
   if (!seleccionadoId) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacio}>Primero agregá y seleccioná un hijo en la pestaña "Hijos".</Text>
-      </View>
+      <LinearGradient
+        colors={tema.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.container, { justifyContent: 'center' }]}
+      >
+        <EstadoVacio
+          icono="people-outline"
+          titulo="Todavía no agregaste a tu hijo"
+          mensaje="Registrá a tu hijo para guardar sus documentos en un solo lugar y recibir avisos antes de que venzan."
+          etiquetaAccion="Agregar hijo"
+          onAccion={() => router.navigate('/hijos')}
+        />
+      </LinearGradient>
     );
   }
 
@@ -413,7 +427,11 @@ export default function Docs() {
           <TarjetaError error={error} onReintentar={cargarDocumentos} />
         </View>
       ) : documentos.length === 0 ? (
-        <Text style={styles.vacio}>{hijoSeleccionado?.name} todavía no tiene documentos.</Text>
+        <EstadoVacio
+          icono="document-text-outline"
+          titulo={`${hijoSeleccionado?.name} todavía no tiene documentos`}
+          mensaje="Tocá SUBIR DOCUMENTO y elegí una foto o un PDF del DNI, el carnet de vacunas u otro. Si tiene fecha de vencimiento, te avisamos por email antes de que venza."
+        />
       ) : (
         <>
           <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre o borrarlo.</Text>

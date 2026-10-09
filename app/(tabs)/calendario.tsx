@@ -8,7 +8,7 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
@@ -17,6 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
+import EstadoVacio from '../../components/EstadoVacio';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
@@ -56,6 +57,7 @@ export default function Calendario() {
   const { hijos, seleccionadoId, cargando: cargandoHijos, error: errorHijos, cargarHijos } = useChildren();
   const { tema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
+  const router = useRouter();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -298,11 +300,23 @@ export default function Calendario() {
     );
   }
 
+  // La carga funcionó y no hay ningún hijo: invitamos a agregar el primero.
   if (!seleccionadoId) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacio}>Primero agregá y seleccioná un hijo en la pestaña "Hijos".</Text>
-      </View>
+      <LinearGradient
+        colors={tema.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.container, { justifyContent: 'center' }]}
+      >
+        <EstadoVacio
+          icono="people-outline"
+          titulo="Todavía no agregaste a tu hijo"
+          mensaje="Registrá a tu hijo para agendar sus turnos médicos y verlos en tu calendario."
+          etiquetaAccion="Agregar hijo"
+          onAccion={() => router.navigate('/hijos')}
+        />
+      </LinearGradient>
     );
   }
 
@@ -371,9 +385,24 @@ export default function Calendario() {
                 <TarjetaError error={error} onReintentar={() => cargarTurnos()} />
               </View>
             ) : (
-              <Text style={styles.vacio}>
-                {diaSeleccionado ? 'No hay turnos ese día.' : `${hijoSeleccionado?.name} todavía no tiene turnos.`}
-              </Text>
+              diaSeleccionado ? (
+                <EstadoVacio
+                  variante="compacta"
+                  icono="calendar-clear-outline"
+                  titulo="No hay turnos ese día"
+                  mensaje=""
+                  etiquetaAccion="Ver todos los turnos"
+                  onAccion={() => setDiaSeleccionado(null)}
+                />
+              ) : (
+                <EstadoVacio
+                  icono="calendar-outline"
+                  titulo={`${hijoSeleccionado?.name} todavía no tiene turnos`}
+                  mensaje="Agendá controles médicos, vacunas u otras citas. También se guardan en tu Google Calendar."
+                  etiquetaAccion="Agendar turno"
+                  onAccion={() => abrirFormulario()}
+                />
+              )
             )
           }
           renderItem={({ item, index }: { item: Turno; index: number }) => {
