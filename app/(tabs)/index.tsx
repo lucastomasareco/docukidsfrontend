@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Linking,
@@ -21,6 +19,10 @@ import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useAvisos } from '../../context/AvisosContext';
+import { TarjetaError } from '../../components/AvisoError';
+import EsperaServidor from '../../components/EsperaServidor';
+import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import { fechaCorta } from '../../lib/fechas';
@@ -63,13 +65,14 @@ let avisoGoogleParaUsuario: string | null = null;
 export default function Docs() {
   const { session } = useAuth();
   const usuarioId = session?.user.id ?? null;
-  const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
+  const { hijos, seleccionadoId, cargando: cargandoHijos, error: errorHijos, cargarHijos } = useChildren();
   const { tema } = useTheme();
+  const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAmigable | null>(null);
   const [mostrarMenu, setMostrarMenu] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [archivoElegido, setArchivoElegido] = useState<ArchivoElegido | null>(null);
@@ -110,9 +113,8 @@ export default function Docs() {
       // No confiamos en el resultado del navegador (en desarrollo no siempre
       // vuelve solo a la app): volvemos a preguntarle al backend cómo quedó.
       await verificarGoogle();
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-      Alert.alert('No se pudo iniciar la conexión', detalle);
+    } catch (e) {
+      mostrarError(e, { que: 'conectar con Google', onReintentar: conectarGoogle });
     } finally {
       setConectandoGoogle(false);
     }
@@ -125,14 +127,16 @@ export default function Docs() {
     if (googleConectado !== false || !usuarioId || conectandoGoogle) return;
     if (avisoGoogleParaUsuario === usuarioId) return;
     avisoGoogleParaUsuario = usuarioId;
-    Alert.alert(
-      'Conectá tu cuenta de Google',
-      'Docukids guarda tus documentos en tu Drive, agenda los turnos en tu Calendar y te avisa por correo cuando algo vence. Para eso necesita tu permiso.\n\nVas a ver una pantalla de Google: tocá "Permitir" y volvé a la app.',
-      [
-        { text: 'Más tarde', style: 'cancel' },
-        { text: 'Conectar ahora', onPress: conectarGoogle },
-      ]
-    );
+    confirmar({
+      titulo: 'Conectá tu cuenta de Google',
+      mensaje:
+        'Docukids guarda tus documentos en tu Drive, agenda los turnos en tu Calendar y te avisa por correo cuando algo vence. Para eso necesita tu permiso.\n\nVas a ver una pantalla de Google: tocá "Permitir" y volvé a la app.',
+      textoConfirmar: 'Conectar ahora',
+      textoCancelar: 'Más tarde',
+      icono: 'logo-google',
+    }).then((acepto) => {
+      if (acepto) conectarGoogle();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleConectado, usuarioId, conectandoGoogle]);
 
@@ -147,9 +151,8 @@ export default function Docs() {
     try {
       const respuesta = await api.get(`/documents/${seleccionadoId}`);
       setDocumentos(respuesta.data.documents);
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-      setError(detalle);
+    } catch (e) {
+      setError(interpretarError(e, 'cargar los documentos'));
     } finally {
       setCargando(false);
     }
@@ -171,7 +174,11 @@ export default function Docs() {
   const elegirDeGaleria = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      Alert.alert('Permiso necesario', 'Docukids necesita acceso a tus fotos para subir documentos.');
+      mostrarAviso('Permiso necesario', 'Docukids necesita acceso a tus fotos para subir documentos.', {
+        icono: 'images-outline',
+        etiquetaAccion: 'Abrir ajustes del teléfono',
+        onAccion: () => Linking.openSettings(),
+      });
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
@@ -188,7 +195,11 @@ export default function Docs() {
   const tomarFoto = async () => {
     const permiso = await ImagePicker.requestCameraPermissionsAsync();
     if (!permiso.granted) {
-      Alert.alert('Permiso necesario', 'Docukids necesita acceso a la cámara para sacar la foto.');
+      mostrarAviso('Permiso necesario', 'Docukids necesita acceso a la cámara para sacar la foto.', {
+        icono: 'camera-outline',
+        etiquetaAccion: 'Abrir ajustes del teléfono',
+        onAccion: () => Linking.openSettings(),
+      });
       return;
     }
     const resultado = await ImagePicker.launchCameraAsync({ quality: 0.8 });
@@ -229,7 +240,7 @@ export default function Docs() {
   const subirDocumento = async () => {
     if (!archivoElegido || !seleccionadoId) return;
     if (!nombreDocumento.trim()) {
-      Alert.alert('Falta el nombre', 'Escribí un nombre para el documento (ej. "DNI").');
+      mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento (ej. "DNI").', { icono: 'create-outline' });
       return;
     }
     const formData = new FormData();
@@ -256,9 +267,8 @@ export default function Docs() {
         nombre: nombreSubido,
         fecha: respuesta.data.expiry_date ?? null,
       });
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-      Alert.alert('No se pudo subir', detalle);
+    } catch (e) {
+      mostrarError(e, { que: 'subir el documento', onReintentar: subirDocumento });
     } finally {
       setSubiendo(false);
     }
@@ -267,13 +277,13 @@ export default function Docs() {
   // Tocar un documento lo abre (Drive o el visor del teléfono).
   const abrirDocumento = async (doc: Documento) => {
     if (!doc.drive_link) {
-      Alert.alert('No se puede abrir', 'Este documento no tiene un enlace a Drive.');
+      mostrarAviso('No se puede abrir', 'Este documento no tiene un enlace a Drive.', { icono: 'link-outline' });
       return;
     }
     try {
       await Linking.openURL(doc.drive_link);
-    } catch {
-      Alert.alert('No se pudo abrir', 'No se pudo abrir el documento. Probá de nuevo.');
+    } catch (e) {
+      mostrarError(e, { que: 'abrir el documento', onReintentar: () => abrirDocumento(doc) });
     }
   };
 
@@ -292,7 +302,7 @@ export default function Docs() {
     if (!editando) return;
     const nombre = nombreEditado.trim();
     if (!nombre) {
-      Alert.alert('Falta el nombre', 'Escribí un nombre para el documento.');
+      mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento.', { icono: 'create-outline' });
       return;
     }
     if (nombre === editando.name) {
@@ -306,39 +316,49 @@ export default function Docs() {
       setEditando(null);
       setNombreEditado('');
       cargarDocumentos();
-    } catch (e: any) {
+    } catch (e) {
       setGuardandoEdicion(false);
-      const detalle = e?.response?.data?.detail;
-      Alert.alert('No se pudo guardar', typeof detalle === 'string' ? detalle : e?.message || 'Error desconocido');
+      mostrarError(e, { que: 'guardar el nombre', onReintentar: guardarEdicion });
     }
   };
 
-  const borrarDocumento = (doc: Documento) => {
-    Alert.alert('Borrar documento', `¿Seguro que querés borrar "${doc.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Borrar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/documents/${doc.id}`);
-            setEditando(null);
-            setNombreEditado('');
-            cargarDocumentos();
-          } catch (e: any) {
-            const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-            Alert.alert('No se pudo borrar', detalle);
-          }
-        },
-      },
-    ]);
+  const borrarDocumento = async (doc: Documento) => {
+    const seguro = await confirmar({
+      titulo: 'Borrar documento',
+      mensaje: `¿Seguro que querés borrar "${doc.name}"?`,
+      textoConfirmar: 'Borrar',
+      peligro: true,
+    });
+    if (!seguro) return;
+    try {
+      await api.delete(`/documents/${doc.id}`);
+      setEditando(null);
+      setNombreEditado('');
+      cargarDocumentos();
+    } catch (e) {
+      mostrarError(e, { que: 'borrar el documento', onReintentar: () => borrarDocumento(doc) });
+    }
   };
 
   if (cargandoHijos && hijos.length === 0) {
     return (
       <View style={styles.centro}>
-        <ActivityIndicator size="large" />
+        <EsperaServidor texto="Cargando tus hijos…" />
       </View>
+    );
+  }
+
+  // Si la carga de hijos falló, no es que "falte agregar uno": hay que decirlo y dejar reintentar.
+  if (errorHijos && hijos.length === 0) {
+    return (
+      <LinearGradient
+        colors={tema.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.container, { justifyContent: 'center' }]}
+      >
+        <TarjetaError error={errorHijos} onReintentar={cargarHijos} />
+      </LinearGradient>
     );
   }
 
@@ -386,14 +406,11 @@ export default function Docs() {
 
       {cargando ? (
         <View style={styles.centroFlex}>
-          <ActivityIndicator size="large" />
+          <EsperaServidor texto="Cargando documentos…" />
         </View>
       ) : error ? (
-        <View style={styles.centroFlex}>
-          <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-          <TouchableOpacity style={[styles.botonReintentar, { backgroundColor: tema.primary }]} onPress={cargarDocumentos}>
-            <Text style={styles.botonTexto}>Reintentar</Text>
-          </TouchableOpacity>
+        <View style={styles.zonaError}>
+          <TarjetaError error={error} onReintentar={cargarDocumentos} />
         </View>
       ) : documentos.length === 0 ? (
         <Text style={styles.vacio}>{hijoSeleccionado?.name} todavía no tiene documentos.</Text>
@@ -557,8 +574,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 16 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
-  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },
-  botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  zonaError: { marginTop: 24 },
   subtitulo: { fontSize: 17, color: '#3F3F3F', marginBottom: 12 },
   ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
   vacio: { fontSize: 16, color: '#3F3F3F', marginTop: 20 },

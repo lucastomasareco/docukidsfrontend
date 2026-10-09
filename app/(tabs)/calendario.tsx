@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
@@ -16,6 +14,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useAvisos } from '../../context/AvisosContext';
+import { TarjetaError } from '../../components/AvisoError';
+import EsperaServidor from '../../components/EsperaServidor';
+import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
 import { colorConOpacidad, esTurnoPasado, fechaCorta, fechaDeHoy } from '../../lib/fechas';
@@ -47,25 +49,19 @@ function horaCorta(hora: string | null): string {
   return hora.slice(0, 5); // 'HH:MM:SS' -> 'HH:MM'
 }
 
-// El backend manda "detail" como texto, o como lista en errores 422.
-function mensajeDeError(e: any): string {
-  const detalle = e?.response?.data?.detail;
-  if (typeof detalle === 'string') return detalle;
-  return e?.message || 'Error desconocido';
-}
-
 // Alto estimado de una tarjeta (con su margen) hasta que se mide de verdad.
 const ALTURA_ESTIMADA = 82;
 
 export default function Calendario() {
-  const { hijos, seleccionadoId, cargando: cargandoHijos } = useChildren();
+  const { hijos, seleccionadoId, cargando: cargandoHijos, error: errorHijos, cargarHijos } = useChildren();
   const { tema } = useTheme();
+  const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false); // pull-to-refresh
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAmigable | null>(null);
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [tituloNuevo, setTituloNuevo] = useState('');
@@ -101,18 +97,18 @@ export default function Calendario() {
       const respuesta = await api.get(`/appointments/${seleccionadoId}`);
       setTurnos(respuesta.data.appointments);
       setError(null);
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
+    } catch (e) {
       if (esRefresco) {
-        Alert.alert('No se pudo actualizar', typeof detalle === 'string' ? detalle : 'Intentá de nuevo en un rato.');
+        // Se conservan los turnos que ya estaban; solo se avisa que no se pudo actualizar.
+        mostrarError(e, { que: 'actualizar los turnos', onReintentar: () => cargarTurnos(true) });
       } else {
-        setError(typeof detalle === 'string' ? detalle : 'Error desconocido');
+        setError(interpretarError(e, 'cargar los turnos'));
       }
     } finally {
       setCargando(false);
       setRefrescando(false);
     }
-  }, [seleccionadoId]);
+  }, [seleccionadoId, mostrarError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -203,7 +199,7 @@ export default function Calendario() {
   const crearTurno = async () => {
     if (!seleccionadoId) return;
     if (!tituloNuevo.trim()) {
-      Alert.alert('Falta el título', 'Escribí para qué es el turno (ej. "Pediatra").');
+      mostrarAviso('Falta el título', 'Escribí para qué es el turno (ej. "Pediatra").', { icono: 'create-outline' });
       return;
     }
     setGuardando(true);
@@ -228,53 +224,77 @@ export default function Calendario() {
       cerrarFormulario();
       cargarTurnos();
     } catch (e: any) {
-      Alert.alert(turnoEditando ? 'No se pudo guardar los cambios' : 'No se pudo guardar el turno', mensajeDeError(e));
+      if (turnoEditando && e?.response?.status === 404) {
+        // El turno ya no existe (se borró desde otro teléfono): reintentar no sirve de nada.
+        cerrarFormulario();
+        cargarTurnos();
+        mostrarAviso('Ese turno ya no existe', 'Se borró desde otro lugar. Actualizamos la lista.', {
+          icono: 'search-outline',
+        });
+        return;
+      }
+      mostrarError(e, {
+        que: turnoEditando ? 'guardar los cambios' : 'guardar el turno',
+        onReintentar: crearTurno,
+      });
     } finally {
       setGuardando(false);
     }
   };
 
-  // Eliminar: pide confirmación; el backend borra primero el evento de Google
-  // Calendar y después el turno.
-  const confirmarEliminar = () => {
+  // Borra el turno (el backend borra primero el evento de Google Calendar y
+  // después la fila). Se separa de la confirmación para poder reintentar.
+  const eliminarTurno = async (turno: Turno) => {
+    setEliminando(true);
+    try {
+      await api.delete(`/appointments/${turno.id}`);
+      cerrarFormulario();
+      cargarTurnos();
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        // Ya no existía (por ejemplo, se borró desde otro teléfono): se actualiza la lista.
+        cerrarFormulario();
+        cargarTurnos();
+        return;
+      }
+      mostrarError(e, { que: 'eliminar el turno', onReintentar: () => eliminarTurno(turno) });
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  // Eliminar: pide confirmación con la ventana propia.
+  const confirmarEliminar = async () => {
     if (!turnoEditando) return;
     const turno = turnoEditando;
-    Alert.alert(
-      'Eliminar turno',
-      `¿Eliminar "${turno.title}" del ${fechaCorta(turno.date)}? También se borra de Google Calendar.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            setEliminando(true);
-            try {
-              await api.delete(`/appointments/${turno.id}`);
-              cerrarFormulario();
-              cargarTurnos();
-            } catch (e: any) {
-              if (e?.response?.status === 404) {
-                // Ya no existía (por ejemplo, se borró desde otro teléfono): se actualiza la lista.
-                cerrarFormulario();
-                cargarTurnos();
-                return;
-              }
-              Alert.alert('No se pudo eliminar el turno', mensajeDeError(e));
-            } finally {
-              setEliminando(false);
-            }
-          },
-        },
-      ]
-    );
+    const seguro = await confirmar({
+      titulo: 'Eliminar turno',
+      mensaje: `¿Eliminar "${turno.title}" del ${fechaCorta(turno.date)}? También se borra de Google Calendar.`,
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    });
+    if (seguro) await eliminarTurno(turno);
   };
 
   if (cargandoHijos && hijos.length === 0) {
     return (
       <View style={styles.centro}>
-        <ActivityIndicator size="large" />
+        <EsperaServidor texto="Cargando tus hijos…" />
       </View>
+    );
+  }
+
+  // Si la carga de hijos falló, no es que "falte agregar uno": hay que decirlo y dejar reintentar.
+  if (errorHijos && hijos.length === 0) {
+    return (
+      <LinearGradient
+        colors={tema.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.container, { justifyContent: 'center' }]}
+      >
+        <TarjetaError error={errorHijos} onReintentar={cargarHijos} />
+      </LinearGradient>
     );
   }
 
@@ -344,17 +364,11 @@ export default function Calendario() {
           ListEmptyComponent={
             cargando ? (
               <View style={styles.centroFlex}>
-                <ActivityIndicator size="large" />
+                <EsperaServidor texto="Cargando turnos…" />
               </View>
             ) : error ? (
-              <View style={styles.centroFlex}>
-                <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-                <TouchableOpacity
-                  style={[styles.botonReintentar, { backgroundColor: tema.primary }]}
-                  onPress={() => cargarTurnos()}
-                >
-                  <Text style={styles.botonTexto}>Reintentar</Text>
-                </TouchableOpacity>
+              <View style={styles.zonaError}>
+                <TarjetaError error={error} onReintentar={() => cargarTurnos()} />
               </View>
             ) : (
               <Text style={styles.vacio}>
@@ -500,8 +514,7 @@ const styles = StyleSheet.create({
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
-  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c' },
-  botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  zonaError: { marginTop: 24 },
   subtitulo: { fontSize: 17, color: '#3F3F3F', marginBottom: 12 },
   vacio: { fontSize: 16, color: '#3F3F3F', marginTop: 20, textAlign: 'center' },
   verTodos: { paddingVertical: 10 },

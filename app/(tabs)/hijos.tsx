@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useChildren, type Hijo } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useAvisos } from '../../context/AvisosContext';
+import { TarjetaError } from '../../components/AvisoError';
+import EsperaServidor from '../../components/EsperaServidor';
 import FormularioSuperior from '../../components/FormularioSuperior';
 
 function inicial(nombre: string): string {
@@ -32,9 +33,11 @@ export default function Hijos() {
     eliminarHijo,
   } = useChildren();
   const { tema } = useTheme();
+  const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   const [hijoEditando, setHijoEditando] = useState<Hijo | null>(null);
 
   useFocusEffect(
@@ -51,7 +54,7 @@ export default function Hijos() {
 
   const handleGuardar = async () => {
     if (!nombreNuevo.trim()) {
-      Alert.alert('Falta el nombre', 'Escribí un nombre antes de guardar.');
+      mostrarAviso('Falta el nombre', 'Escribí un nombre antes de guardar.', { icono: 'create-outline' });
       return;
     }
     setGuardando(true);
@@ -60,63 +63,77 @@ export default function Hijos() {
       : await agregarHijo(nombreNuevo.trim());
     setGuardando(false);
     if (error) {
-      Alert.alert('No se pudo guardar', error);
+      if (hijoEditando && (error as any)?.response?.status === 404) {
+        // El perfil ya no existe (se borró desde otro teléfono): reintentar no sirve.
+        cerrarFormulario();
+        cargarHijos();
+        mostrarAviso('Ese perfil ya no existe', 'Se borró desde otro lugar. Actualizamos la lista.', {
+          icono: 'search-outline',
+        });
+        return;
+      }
+      mostrarError(error, {
+        que: hijoEditando ? 'guardar el nombre' : 'registrar al hijo',
+        onReintentar: handleGuardar,
+      });
       return;
     }
     cerrarFormulario();
   };
 
-  const abrirRenombrar = (hijo: Hijo) => {
+  // Mantener presionado un hijo abre el formulario de edición (igual que en
+  // Docs y Calendario): ahí se cambia el nombre o se elimina.
+  const abrirEdicion = (hijo: Hijo) => {
     setHijoEditando(hijo);
     setNombreNuevo(hijo.name);
     setMostrarFormulario(true);
   };
 
-  const confirmarEliminar = (hijo: Hijo) => {
-    Alert.alert(
-      `Eliminar a ${hijo.name}`,
-      'Esto borra también sus documentos y sus turnos guardados. Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await eliminarHijo(hijo.id);
-            if (error) Alert.alert('No se pudo eliminar', error);
-          },
-        },
-      ]
-    );
+  const eliminar = async (hijo: Hijo) => {
+    setEliminando(true);
+    const { error } = await eliminarHijo(hijo.id);
+    setEliminando(false);
+    if (error) {
+      if ((error as any)?.response?.status === 404) {
+        // Ya no existía: se actualiza la lista y listo.
+        cerrarFormulario();
+        cargarHijos();
+        return;
+      }
+      mostrarError(error, { que: 'eliminar el perfil', onReintentar: () => eliminar(hijo) });
+      return;
+    }
+    cerrarFormulario();
   };
 
-  const abrirMenu = (hijo: Hijo) => {
-    Alert.alert(hijo.name, '¿Qué querés hacer?', [
-      { text: 'Cambiar nombre', onPress: () => abrirRenombrar(hijo) },
-      { text: 'Eliminar hijo', style: 'destructive', onPress: () => confirmarEliminar(hijo) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+  const confirmarEliminar = async (hijo: Hijo) => {
+    const seguro = await confirmar({
+      titulo: `Eliminar a ${hijo.name}`,
+      mensaje: 'Esto borra también sus documentos y sus turnos guardados. Esta acción no se puede deshacer.',
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    });
+    if (seguro) await eliminar(hijo);
   };
 
   if (cargando && hijos.length === 0) {
     return (
       <View style={styles.centro}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.textoCargando}>
-          Conectando con el servidor...{'\n'}(puede tardar hasta 1 minuto la primera vez)
-        </Text>
+        <EsperaServidor texto="Cargando tus hijos…" />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.textoError}>No se pudo cargar: {error}</Text>
-        <TouchableOpacity style={[styles.botonReintentar, { backgroundColor: tema.primary }]} onPress={cargarHijos}>
-          <Text style={styles.botonTexto}>Reintentar</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={tema.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.container, { justifyContent: 'center' }]}
+      >
+        <TarjetaError error={error} onReintentar={cargarHijos} />
+      </LinearGradient>
     );
   }
 
@@ -158,7 +175,7 @@ export default function Hijos() {
                   seleccionado && { backgroundColor: tema.bar, borderWidth: 1.5, borderColor: tema.primary },
                 ]}
                 onPress={() => seleccionarHijo(item.id)}
-                onLongPress={() => abrirMenu(item)}
+                onLongPress={() => abrirEdicion(item)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.avatar, seleccionado && { backgroundColor: tema.primary }]}>
@@ -175,9 +192,9 @@ export default function Hijos() {
         />
       )}
       {mostrarFormulario && (
-        <FormularioSuperior>
+        <FormularioSuperior onCerrar={hijoEditando && !guardando && !eliminando ? cerrarFormulario : undefined}>
           <Text style={styles.formularioTitulo}>
-            {hijoEditando ? 'Cambiar nombre' : 'Nuevo hijo'}
+            {hijoEditando ? 'Editar hijo' : 'Nuevo hijo'}
           </Text>
           <TextInput
             placeholderTextColor="#5F5F5F"
@@ -191,18 +208,27 @@ export default function Hijos() {
             <TouchableOpacity
               style={[styles.botonForm, styles.botonCancelar]}
               onPress={cerrarFormulario}
-              disabled={guardando}
+              disabled={guardando || eliminando}
             >
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
               onPress={handleGuardar}
-              disabled={guardando}
+              disabled={guardando || eliminando}
             >
               <Text style={styles.botonTexto}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
             </TouchableOpacity>
           </View>
+          {hijoEditando && (
+            <TouchableOpacity
+              style={styles.botonEliminar}
+              onPress={() => confirmarEliminar(hijoEditando)}
+              disabled={guardando || eliminando}
+            >
+              <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando...' : 'Eliminar hijo'}</Text>
+            </TouchableOpacity>
+          )}
         </FormularioSuperior>
       )}
     </LinearGradient>
@@ -212,9 +238,6 @@ export default function Hijos() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 16 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  textoCargando: { fontSize: 16, textAlign: 'center', marginTop: 12, color: '#3F3F3F' },
-  textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c', marginBottom: 12 },
-  botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   textoGuiaSuave: { fontSize: 16, color: '#3F3F3F', marginTop: 0, marginBottom: 14 },
   ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
   botonAgendarGrande: {
@@ -271,4 +294,6 @@ const styles = StyleSheet.create({
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
+  botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
+  botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
 });
