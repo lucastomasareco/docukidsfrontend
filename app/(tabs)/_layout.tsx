@@ -25,15 +25,31 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        // Barra de arriba: blanca (la de siempre); solo cambia el estilo del título.
+        headerTitleAlign: 'left',
+        headerTitleStyle: { fontSize: 24, fontWeight: 'bold', color: tema.textPrimary },
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
         tabBarLabelStyle: { fontSize: 15, fontWeight: '600' },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Docs', tabBarIcon: crearIcono('index') }} />
-      <Tabs.Screen name="calendario" options={{ title: 'Calendario', tabBarIcon: crearIcono('calendario') }} />
-      <Tabs.Screen name="hijos" options={{ title: 'Hijos', tabBarIcon: crearIcono('hijos') }} />
-      <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: crearIcono('ajustes') }} />
+      {/* "title" es el nombre corto de la barra de abajo; "headerTitle" es el de arriba. */}
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Docs', headerTitle: 'Mis documentos', tabBarIcon: crearIcono('index') }}
+      />
+      <Tabs.Screen
+        name="calendario"
+        options={{ title: 'Calendario', headerTitle: 'Calendario', tabBarIcon: crearIcono('calendario') }}
+      />
+      <Tabs.Screen
+        name="hijos"
+        options={{ title: 'Hijos', headerTitle: 'Mis hijos', tabBarIcon: crearIcono('hijos') }}
+      />
+      <Tabs.Screen
+        name="ajustes"
+        options={{ title: 'Ajustes', headerTitle: 'Ajustes', tabBarIcon: crearIcono('ajustes') }}
+      />
     </Tabs>
   );
 }

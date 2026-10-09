@@ -127,8 +127,6 @@ export default function Hijos() {
       end={{ x: 1, y: 1 }} 
       style={styles.container}
     >
-      <Text style={styles.titulo}>Mis Hijos</Text>
-
       {hijos.length === 0 && (
         <Text style={styles.textoGuiaSuave}>Creá el perfil de tu hijo</Text>
       )}
@@ -212,13 +210,12 @@ export default function Hijos() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 30 },
+  container: { flex: 1, padding: 16, paddingTop: 16 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   textoCargando: { fontSize: 16, textAlign: 'center', marginTop: 12, color: '#3F3F3F' },
   textoError: { fontSize: 16, textAlign: 'center', color: '#b71c1c', marginBottom: 12 },
   botonReintentar: { backgroundColor: '#1976d2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  titulo: { fontSize: 26, fontWeight: 'bold', marginBottom: 16 },
-  textoGuiaSuave: { fontSize: 16, color: '#3F3F3F', marginTop: -10, marginBottom: 14 },
+  textoGuiaSuave: { fontSize: 16, color: '#3F3F3F', marginTop: 0, marginBottom: 14 },
   ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
   botonAgendarGrande: {
     paddingVertical: 18,

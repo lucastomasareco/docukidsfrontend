@@ -1,4 +1,4 @@
-export type TemaId = 'oceano' | 'durazno' | 'lavanda' | 'menta' | 'arcoiris';
+export type TemaId = 'oceano' | 'lavanda' | 'menta' | 'arcoiris';
 
 export type Tema = {
   id: TemaId;
@@ -23,33 +23,23 @@ export const TEMAS: Record<TemaId, Tema> = {
     textPrimary: '#1F1F1F',
     textSecondary: '#3F3F3F',
   },
-  durazno: {
-    id: 'durazno',
-    name: 'Durazno',
-    backgroundGradient: ['#FADCD5', '#FCEEE8'],
-    card: '#FDF5F0',
-    primary: '#F4A89A',
-    bar: '#FDF0EC',
-    textPrimary: '#1F1F1F',
-    textSecondary: '#3F3F3F',
-  },
   lavanda: {
     id: 'lavanda',
     name: 'Lavanda',
-    backgroundGradient: ['#DDD6F3', '#EDE8F8'],
-    card: '#EDE8F8',
+    backgroundGradient: ['#C6B6EE', '#EEF3FB'],
+    card: '#F3EEFB',
     primary: '#B8A9D4',
-    bar: '#F3EFFB',
+    bar: '#EFE9FB',
     textPrimary: '#1F1F1F',
     textSecondary: '#3F3F3F',
   },
   menta: {
     id: 'menta',
     name: 'Menta',
-    backgroundGradient: ['#A8DFF0', '#F0FAFB'],
+    backgroundGradient: ['#A9E5C8', '#F7F2D6'],
     card: '#FFFFFF',
     primary: '#7DD4B4',
-    bar: '#D4F0F8',
+    bar: '#E3F6EC',
     textPrimary: '#1F1F1F',
     textSecondary: '#3F3F3F',
   },
