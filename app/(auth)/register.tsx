@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useAvisos } from '../../context/AvisosContext';
 import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Register() {
   const { registrarse } = useAuth();
+  const { mostrarError, mostrarAviso } = useAvisos();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,23 +15,25 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (!email || !password) {
-      Alert.alert('Faltan datos', 'Completá email y contraseña.');
+      mostrarAviso('Faltan datos', 'Completá email y contraseña.', { icono: 'create-outline' });
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Contraseña muy corta', 'Supabase pide al menos 6 caracteres.');
+      mostrarAviso('Contraseña muy corta', 'Tiene que tener al menos 6 caracteres.', { icono: 'create-outline' });
       return;
     }
     setCargando(true);
     const { error } = await registrarse(email, password);
     setCargando(false);
     if (error) {
-      Alert.alert('No se pudo registrar', error);
+      mostrarError(error, { onReintentar: handleRegister });
       return;
     }
-    Alert.alert('Cuenta creada', 'Si tu proyecto pide confirmación por email, revisá tu correo antes de ingresar.', [
-      { text: 'OK', onPress: () => router.replace('/(auth)/login') },
-    ]);
+    mostrarAviso('Cuenta creada', 'Revisá tu correo: puede que tengas que confirmar tu email antes de ingresar.', {
+      icono: 'checkmark-circle-outline',
+      duracion: 9000,
+    });
+    router.replace('/(auth)/login');
   };
 
   return (

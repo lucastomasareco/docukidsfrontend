@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, AppState, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,11 +7,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
+import { useAvisos } from '../../context/AvisosContext';
+import { TarjetaError } from '../../components/AvisoError';
+import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
+  const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const [conectando, setConectando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   // Formulario "Cambiar contraseña"
@@ -20,6 +24,10 @@ export default function Ajustes() {
   const [claveNueva, setClaveNueva] = useState('');
   const [claveRepetir, setClaveRepetir] = useState('');
   const [guardandoClave, setGuardandoClave] = useState(false);
+  // Error dentro del modal de contraseña (el aviso de arriba quedaría tapado por el modal).
+  const [errorClave, setErrorClave] = useState<ErrorAmigable | null>(null);
+  // Si no se pudo comprobar el estado de Google (solo se muestra mientras no sabemos nada).
+  const [errorEstado, setErrorEstado] = useState<ErrorAmigable | null>(null);
   // null = todavía no sabemos; true/false = lo que dice el backend.
   const [conectado, setConectado] = useState<boolean | null>(null);
   // true mientras el usuario está en el navegador autorizando Google.
@@ -31,8 +39,10 @@ export default function Ajustes() {
     try {
       const r = await api.get('/auth/google/status');
       setConectado(!!r.data.conectado);
+      setErrorEstado(null);
       return !!r.data.conectado;
-    } catch {
+    } catch (e) {
+      setErrorEstado(interpretarError(e, 'comprobar Google'));
       return null; // sin red o servidor dormido: no sabemos
     }
   }, []);
@@ -70,16 +80,27 @@ export default function Ajustes() {
       const ok = await verificarConexion();
       const volvioConExito = resultado.type === 'success' && !!resultado.url?.includes('google=ok');
       if (ok && (volvioConExito || !yaEstabaConectado)) {
-        Alert.alert('¡Listo!', 'Tu cuenta de Google quedó conectada. Ya podés subir documentos y crear turnos.');
+        mostrarAviso('Google conectado', 'Ya podés subir documentos y crear turnos.', {
+          icono: 'checkmark-circle-outline',
+        });
       } else if (resultado.type === 'success' && resultado.url?.includes('google=error')) {
-        Alert.alert('No se pudo conectar', 'Google no completó la conexión. Probá de nuevo.');
+        mostrarAviso('No se pudo conectar', 'Google no completó la conexión. Probá de nuevo.', {
+          icono: 'logo-google',
+          etiquetaAccion: 'Reintentar',
+          onAccion: conectarGoogle,
+        });
       } else if (ok === null) {
-        Alert.alert('No pudimos comprobarlo', 'Revisá tu conexión a internet y volvé a abrir Ajustes.');
+        mostrarAviso('No pudimos comprobarlo', 'Revisá tu conexión a internet e intentá de nuevo.', {
+          icono: 'cloud-offline-outline',
+          etiquetaAccion: 'Reintentar',
+          onAccion: () => {
+            verificarConexion();
+          },
+        });
       }
       // Si ok === false y el usuario solo cerró el navegador, no mostramos nada: canceló.
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-      Alert.alert('No se pudo iniciar la conexión', detalle);
+    } catch (e) {
+      mostrarError(e, { que: 'conectar con Google', onReintentar: conectarGoogle });
     } finally {
       esperandoGoogle.current = false;
       setConectando(false);
@@ -91,45 +112,34 @@ export default function Ajustes() {
     setClaveActual('');
     setClaveNueva('');
     setClaveRepetir('');
+    setErrorClave(null);
   };
 
   const guardarClave = async () => {
     if (!claveActual) {
-      Alert.alert('Falta la contraseña actual', 'Escribí tu contraseña actual.');
+      setErrorClave(errorSimple('Falta la contraseña actual', 'Escribí tu contraseña actual.'));
       return;
     }
     if (claveNueva.length < 6) {
-      Alert.alert('Contraseña muy corta', 'La nueva tiene que tener al menos 6 caracteres.');
+      setErrorClave(errorSimple('Contraseña muy corta', 'La nueva tiene que tener al menos 6 caracteres.'));
       return;
     }
     if (claveNueva !== claveRepetir) {
-      Alert.alert('No coinciden', 'Las dos contraseñas nuevas tienen que ser iguales.');
+      setErrorClave(errorSimple('No coinciden', 'Las dos contraseñas nuevas tienen que ser iguales.'));
       return;
     }
+    setErrorClave(null);
     setGuardandoClave(true);
     const { error } = await cambiarContrasena(claveActual, claveNueva);
     setGuardandoClave(false);
     if (error) {
-      Alert.alert('No se pudo cambiar la contraseña', error);
+      setErrorClave(error);
       return;
     }
     cerrarFormularioClave();
-    Alert.alert('Listo', 'Tu contraseña se cambió.');
-  };
-
-  const confirmarEliminarCuenta = () => {
-    Alert.alert(
-      '¿Eliminar tu cuenta?',
-      'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
-        'Esto no se puede deshacer.\n\n' +
-        'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
-        'Los eventos de Google Calendar tampoco. ' +
-        'Dejarás de recibir avisos por email.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar cuenta', style: 'destructive', onPress: ejecutarEliminarCuenta },
-      ]
-    );
+    mostrarAviso('Contraseña cambiada', 'Usá la nueva la próxima vez que inicies sesión.', {
+      icono: 'checkmark-circle-outline',
+    });
   };
 
   const ejecutarEliminarCuenta = async () => {
@@ -137,14 +147,32 @@ export default function Ajustes() {
     const { error } = await eliminarCuenta();
     if (error) {
       setEliminando(false);
-      Alert.alert('No se pudo eliminar la cuenta', error);
+      mostrarError(error, { que: 'eliminar la cuenta', onReintentar: ejecutarEliminarCuenta });
       return;
     }
-    // Sesión cerrada: la app vuelve sola a la pantalla de login.
-    Alert.alert(
+    // Sesión cerrada: la app vuelve sola a la pantalla de login. El aviso vive
+    // por encima de las pantallas, así que sigue visible después del cambio.
+    mostrarAviso(
       'Cuenta eliminada',
-      'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.'
+      'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.',
+      { icono: 'checkmark-circle-outline', duracion: 10000 }
     );
+  };
+
+  const confirmarEliminarCuenta = async () => {
+    const seguro = await confirmar({
+      titulo: '¿Eliminar tu cuenta?',
+      mensaje:
+        'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
+        'Esto no se puede deshacer.\n\n' +
+        'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
+        'Los eventos de Google Calendar tampoco. ' +
+        'Dejarás de recibir avisos por email.',
+      textoConfirmar: 'Eliminar cuenta',
+      peligro: true,
+      icono: 'warning-outline',
+    });
+    if (seguro) await ejecutarEliminarCuenta();
   };
 
   return (
@@ -152,9 +180,15 @@ export default function Ajustes() {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.email}>{session?.user.email}</Text>
         
-        <Text style={styles.estadoGoogle}>
-          {conectado === null ? 'Google: comprobando…' : conectado ? 'Google: ✅ Conectado' : 'Google: ⚠️ No conectado'}
-        </Text>
+        {conectado === null && errorEstado ? (
+          <View style={{ alignSelf: 'stretch' }}>
+            <TarjetaError variante="compacta" error={errorEstado} onReintentar={verificarConexion} />
+          </View>
+        ) : (
+          <Text style={styles.estadoGoogle}>
+            {conectado === null ? 'Google: comprobando…' : conectado ? 'Google: ✅ Conectado' : 'Google: ⚠️ No conectado'}
+          </Text>
+        )}
         <TouchableOpacity
           style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
           onPress={conectarGoogle}
@@ -232,6 +266,7 @@ export default function Ajustes() {
               onChangeText={setClaveRepetir}
               
             />
+            {errorClave && <TarjetaError variante="compacta" error={errorClave} />}
             <View style={styles.filaModal}>
               <TouchableOpacity
                 style={[styles.botonModal, { borderWidth: 2, borderColor: tema.primary }]}

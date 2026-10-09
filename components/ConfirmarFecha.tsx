@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, ActivityIndicator } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { api } from '../lib/api';
 import { useTheme } from '../context/ThemeContext';
+import { TarjetaError } from './AvisoError';
+import { ErrorAmigable, interpretarError } from '../lib/errores';
 
 // El español del calendario se registra en calendario.tsx. Si por algún motivo
 // este componente se mostrara antes de que esa pantalla se haya cargado,
@@ -65,27 +67,34 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
   // Se incrementa solo al saltar de año, para forzar al calendario a mostrar ese mes.
   const [claveCalendario, setClaveCalendario] = useState(0);
   const [guardando, setGuardando] = useState(false);
+  // Error al guardar. Va DENTRO del modal (el aviso que baja desde arriba
+  // quedaría tapado, porque el modal es una ventana aparte).
+  const [errorGuardar, setErrorGuardar] = useState<ErrorAmigable | null>(null);
+  const ultimoCuerpo = useRef<{ expiry_date: string } | { no_expiry: true } | null>(null);
 
   const cerrar = () => {
     setModo('pregunta');
     setFechaElegida(null);
+    setErrorGuardar(null);
     onTerminar();
   };
 
   const enviar = async (cuerpo: { expiry_date: string } | { no_expiry: true }) => {
+    ultimoCuerpo.current = cuerpo;
+    setErrorGuardar(null);
     setGuardando(true);
     try {
       await api.patch(`/documents/${docId}`, cuerpo);
       cerrar();
-    } catch (e: any) {
-      const detalle = e?.response?.data?.detail || e?.message || 'Error desconocido';
-      Alert.alert('No se pudo guardar', typeof detalle === 'string' ? detalle : 'Revisá la fecha e intentá de nuevo.');
+    } catch (e) {
+      setErrorGuardar(interpretarError(e, 'guardar la fecha'));
     } finally {
       setGuardando(false);
     }
   };
 
   const irAElegir = () => {
+    setErrorGuardar(null);
     setFechaElegida(null);
     setMesVisible(fechaDetectada ?? hoyISO());
     setClaveCalendario((c) => c + 1);
@@ -121,6 +130,13 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
               )}
 
               {guardando && <ActivityIndicator style={{ marginVertical: 8 }} />}
+              {errorGuardar && (
+                <TarjetaError
+                  variante="compacta"
+                  error={errorGuardar}
+                  onReintentar={() => ultimoCuerpo.current && enviar(ultimoCuerpo.current)}
+                />
+              )}
 
               {fechaDetectada ? (
                 <>
@@ -211,6 +227,13 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
               </Text>
 
               {guardando && <ActivityIndicator style={{ marginVertical: 8 }} />}
+              {errorGuardar && (
+                <TarjetaError
+                  variante="compacta"
+                  error={errorGuardar}
+                  onReintentar={() => ultimoCuerpo.current && enviar(ultimoCuerpo.current)}
+                />
+              )}
 
               <TouchableOpacity
                 style={[styles.boton, botonTemaRelleno, !fechaElegida && styles.botonDeshabilitado]}
@@ -221,7 +244,7 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
                 <Text style={styles.textoBoton}>Guardar fecha</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => setModo('pregunta')} disabled={guardando} style={styles.enlace}>
+              <TouchableOpacity onPress={() => { setErrorGuardar(null); setModo('pregunta'); }} disabled={guardando} style={styles.enlace}>
                 <Text style={styles.textoEnlace}>Volver</Text>
               </TouchableOpacity>
             </>

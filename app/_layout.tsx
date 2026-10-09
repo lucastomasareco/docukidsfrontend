@@ -4,6 +4,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ChildrenProvider } from '../context/ChildrenContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import AvisosProvider from '../components/AvisosProvider';
 
 function RaizConGuardias() {
   const { session, cargando, enRecuperacion } = useAuth();
@@ -38,7 +39,9 @@ export default function RootLayout() {
     <AuthProvider>
       <ThemeProvider>
         <ChildrenProvider>
-          <RaizConGuardias />
+          <AvisosProvider>
+            <RaizConGuardias />
+          </AvisosProvider>
         </ChildrenProvider>
       </ThemeProvider>
     </AuthProvider>

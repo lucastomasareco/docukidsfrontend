@@ -1,24 +1,26 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useAvisos } from '../../context/AvisosContext';
 import CampoContrasena from '../../components/CampoContrasena';
 
 export default function Login() {
   const { iniciarSesion } = useAuth();
+  const { mostrarError, mostrarAviso } = useAvisos();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cargando, setCargando] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Faltan datos', 'Completá email y contraseña.');
+      mostrarAviso('Faltan datos', 'Completá email y contraseña.', { icono: 'create-outline' });
       return;
     }
     setCargando(true);
     const { error } = await iniciarSesion(email, password);
     setCargando(false);
-    if (error) Alert.alert('No se pudo iniciar sesión', error);
+    if (error) mostrarError(error, { onReintentar: handleLogin });
   };
 
   return (

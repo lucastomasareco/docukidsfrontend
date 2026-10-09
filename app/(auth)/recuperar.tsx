@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useAvisos } from '../../context/AvisosContext';
 import CampoContrasena from '../../components/CampoContrasena';
 
 // Recuperar contraseña en 2 pasos, sin links ni deep links:
@@ -12,6 +13,7 @@ const ESPERA_REENVIO = 60; // segundos
 
 export default function Recuperar() {
   const { pedirCodigoRecuperacion, restablecerContrasena } = useAuth();
+  const { mostrarError, mostrarAviso } = useAvisos();
   const [paso, setPaso] = useState<'email' | 'codigo'>('email');
   const [email, setEmail] = useState('');
   const [codigo, setCodigo] = useState('');
@@ -29,44 +31,50 @@ export default function Recuperar() {
 
   const enviarCodigo = async () => {
     if (!email.trim()) {
-      Alert.alert('Falta el email', 'Escribí el email con el que te registraste.');
+      mostrarAviso('Falta el email', 'Escribí el email con el que te registraste.', { icono: 'create-outline' });
       return;
     }
     setCargando(true);
     const { error } = await pedirCodigoRecuperacion(email);
     setCargando(false);
     if (error) {
-      Alert.alert('No se pudo enviar el código', error);
+      mostrarError(error, { onReintentar: enviarCodigo });
       return;
     }
     setPaso('codigo');
     setEspera(ESPERA_REENVIO);
     // Mensaje deliberadamente neutro: no revela si el email tiene cuenta o no.
-    Alert.alert('Revisá tu correo', 'Si ese email tiene una cuenta, te enviamos un código. Mirá también la carpeta de spam.');
+    mostrarAviso('Revisá tu correo', 'Si ese email tiene una cuenta, te enviamos un código. Mirá también la carpeta de spam.', {
+      icono: 'mail-outline',
+      duracion: 9000,
+    });
   };
 
   const cambiar = async () => {
     if (!codigo.trim()) {
-      Alert.alert('Falta el código', 'Escribí el código que te llegó por correo.');
+      mostrarAviso('Falta el código', 'Escribí el código que te llegó por correo.', { icono: 'create-outline' });
       return;
     }
     if (nueva.length < 6) {
-      Alert.alert('Contraseña muy corta', 'Tiene que tener al menos 6 caracteres.');
+      mostrarAviso('Contraseña muy corta', 'Tiene que tener al menos 6 caracteres.', { icono: 'create-outline' });
       return;
     }
     if (nueva !== repetir) {
-      Alert.alert('No coinciden', 'Las dos contraseñas tienen que ser iguales.');
+      mostrarAviso('No coinciden', 'Las dos contraseñas tienen que ser iguales.', { icono: 'create-outline' });
       return;
     }
     setCargando(true);
     const { error } = await restablecerContrasena(email, codigo, nueva);
     setCargando(false);
     if (error) {
-      Alert.alert('No se pudo cambiar la contraseña', error);
+      mostrarError(error, { onReintentar: cambiar });
       return;
     }
-    // Si salió bien, la sesión ya quedó abierta y la app entra sola.
-    Alert.alert('¡Listo!', 'Tu contraseña se cambió y ya estás adentro.');
+    // Si salió bien, la sesión ya quedó abierta y la app entra sola. El aviso
+    // vive por encima de las pantallas, así que se sigue viendo al entrar.
+    mostrarAviso('Contraseña cambiada', 'Ya estás adentro con tu contraseña nueva.', {
+      icono: 'checkmark-circle-outline',
+    });
   };
 
   return (
