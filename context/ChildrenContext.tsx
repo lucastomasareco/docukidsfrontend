@@ -32,16 +32,6 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<ErrorAmigable | null>(null);
   const { session } = useAuth();
 
-  // Sin sesión (cerrar sesión o cuenta eliminada) no debe quedar nada de la
-  // persona anterior en memoria.
-  useEffect(() => {
-    if (!session) {
-      setHijos([]);
-      setSeleccionadoId(null);
-      setError(null);
-    }
-  }, [session]);
-
   const cargarHijos = useCallback(async () => {
     setCargando(true);
     setError(null);
@@ -60,6 +50,22 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
       setCargando(false);
     }
   }, []);
+
+  // Con sesión, los hijos se cargan solos (así Docs y Calendario no dependen de
+  // que alguien visite antes la pestaña Hijos). Sin sesión (cerrar sesión o cuenta
+  // eliminada) no debe quedar nada de la persona anterior en memoria.
+  // Se usa el id del usuario y no el objeto "session": Supabase renueva ese objeto
+  // cada tanto y recargaríamos sin necesidad.
+  const usuarioId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (usuarioId) {
+      cargarHijos();
+    } else {
+      setHijos([]);
+      setSeleccionadoId(null);
+      setError(null);
+    }
+  }, [usuarioId, cargarHijos]);
 
   const agregarHijo = useCallback(
     async (nombre: string) => {
