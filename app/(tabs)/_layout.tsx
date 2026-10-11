@@ -1,6 +1,10 @@
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { AyudaProvider } from '../../context/AyudaContext';
+import BotonAyuda from '../../components/BotonAyuda';
+import PanelAyuda from '../../components/PanelAyuda';
 
 const ICONOS: Record<string, { activo: any; inactivo: any }> = {
   index: { activo: 'document-text', inactivo: 'document-text-outline' },
@@ -23,8 +27,12 @@ export default function TabsLayout() {
   const { tema } = useTheme();
 
   return (
+    <AyudaProvider>
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
+        // Botón "?" de la guía, en la barra de arriba de las 4 pestañas.
+        headerRight: () => <BotonAyuda />,
         // Barra de arriba: blanca (la de siempre); solo cambia el estilo del título.
         headerTitleAlign: 'left',
         headerTitleStyle: { fontSize: 24, fontWeight: 'bold', color: tema.textPrimary },
@@ -51,5 +59,8 @@ export default function TabsLayout() {
         options={{ title: 'Ajustes', headerTitle: 'Ajustes', tabBarIcon: crearIcono('ajustes') }}
       />
     </Tabs>
+    <PanelAyuda />
+    </View>
+    </AyudaProvider>
   );
 }
