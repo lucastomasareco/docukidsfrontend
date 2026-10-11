@@ -52,8 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? traducirErrorAuth(error, 'No se pudo registrar') : null };
   };
 
+  // Primero se intenta cerrar la sesión en todos los dispositivos (avisa al
+  // servidor de Supabase). Si eso falla (sin internet, señal débil, emulador),
+  // Supabase deja la sesión abierta en el teléfono: por eso, si falla, la
+  // cerramos igual SOLO en este teléfono (scope local), que no necesita internet.
   const cerrarSesion = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      await supabase.auth.signOut({ scope: 'local' });
+    }
   };
 
   // 1) Manda un correo con un código de 6 dígitos (la plantilla "Reset password"
