@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, createElement } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -35,6 +35,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
   const [claveCalendario, setClaveCalendario] = useState(0);
   const [mesVisible, setMesVisible] = useState(fecha);
   const [horaIOS, setHoraIOS] = useState<Date>(horaADate(hora)); // solo iOS (confirma con "Aceptar")
+  const [horaWeb, setHoraWeb] = useState<string>(hora || '09:00'); // solo web (versión de escritorio)
 
   const abrirCalendario = () => {
     setMesVisible(fecha);
@@ -50,6 +51,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
 
   const abrirHora = () => {
     setHoraIOS(horaADate(hora));
+    setHoraWeb(hora || '09:00');
     setVerHora(true);
   };
 
@@ -156,6 +158,46 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
                 style={[styles.botonAceptar, { backgroundColor: tema.primary }]}
                 onPress={() => {
                   onCambiarHora(`${dos(horaIOS.getHours())}:${dos(horaIOS.getMinutes())}`);
+                  setVerHora(false);
+                }}
+              >
+                <Text style={styles.botonAceptarTexto}>Aceptar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setVerHora(false)} style={styles.enlace}>
+                <Text style={styles.textoEnlace}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ---- Hora en la web (app de escritorio): el DateTimePicker no existe en la web,
+           así que se usa el selector de hora del navegador (<input type="time">). ---- */}
+      {Platform.OS === 'web' && (
+        <Modal visible={verHora} transparent animationType="fade" onRequestClose={() => setVerHora(false)}>
+          <View style={styles.fondo}>
+            <View style={[styles.caja, { backgroundColor: tema.bar }]}>
+              <Text style={styles.titulo}>Elegí la hora</Text>
+              <View style={{ alignItems: 'center', marginVertical: 12 }}>
+                {createElement('input', {
+                  type: 'time',
+                  value: horaWeb,
+                  autoFocus: true,
+                  onChange: (e: any) => setHoraWeb(e.target.value),
+                  style: {
+                    fontSize: '28px',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #ccc',
+                    color: '#1F1F1F',
+                    backgroundColor: '#FFFFFF',
+                  },
+                })}
+              </View>
+              <TouchableOpacity
+                style={[styles.botonAceptar, { backgroundColor: tema.primary }]}
+                onPress={() => {
+                  if (horaWeb) onCambiarHora(horaWeb);
                   setVerHora(false);
                 }}
               >
