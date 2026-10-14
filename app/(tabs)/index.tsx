@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   Linking,
+  Platform,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -245,19 +246,31 @@ export default function Docs() {
       mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento (ej. "DNI").', { icono: 'create-outline' });
       return;
     }
-    const formData = new FormData();
-    formData.append('file', {
-      uri: archivoElegido.uri,
-      name: archivoElegido.nombreArchivo,
-      type: archivoElegido.mimeType,
-    } as any);
-    formData.append('child_id', String(seleccionadoId));
-    formData.append('name', nombreDocumento.trim());
-
     setSubiendo(true);
     try {
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        // En el navegador el truco { uri, name, type } no sirve (mandaría el texto
+        // "[object Object]" en vez del archivo y el backend responde 422).
+        // Hay que bajar el archivo elegido y mandarlo como un File de verdad.
+        const bajada = await fetch(archivoElegido.uri);
+        const blob = await bajada.blob();
+        const archivo = new File([blob], archivoElegido.nombreArchivo, { type: archivoElegido.mimeType });
+        formData.append('file', archivo);
+      } else {
+        formData.append('file', {
+          uri: archivoElegido.uri,
+          name: archivoElegido.nombreArchivo,
+          type: archivoElegido.mimeType,
+        } as any);
+      }
+      formData.append('child_id', String(seleccionadoId));
+      formData.append('name', nombreDocumento.trim());
+
+      // En web NO se fija el Content-Type a mano: el navegador lo arma solo
+      // (con el "boundary" que necesita el multipart).
       const respuesta = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: Platform.OS === 'web' ? undefined : { 'Content-Type': 'multipart/form-data' },
         timeout: 120000,
       });
       const nombreSubido = nombreDocumento.trim();

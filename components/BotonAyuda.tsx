@@ -3,36 +3,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAyuda } from '../context/AyudaContext';
 
-// Botón "?" de la barra de arriba. Abre la guía de la pantalla; con la guía
-// abierta, el mismo botón la cierra y muestra "cerrar" en chiquito debajo.
-// El texto ocupa siempre su lugar (invisible si está cerrada) para que el
-// ícono no salte de posición al abrir o cerrar.
+// Botón de la barra de arriba: signo de pregunta + el texto "¿Cómo se usa?".
+// Abre la guía de la pantalla (ventana centrada). Con la guía abierta, la ventana
+// tapa la pantalla; se cierra con su botón "Cerrar" o tocando afuera.
 export default function BotonAyuda() {
   const { tema } = useTheme();
-  const { abierta, alternar } = useAyuda();
+  const { alternar } = useAyuda();
 
   return (
     <TouchableOpacity
-      style={styles.boton}
+      style={[styles.boton, { backgroundColor: tema.primary }]}
       onPress={alternar}
       activeOpacity={0.7}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       accessibilityRole="button"
-      accessibilityLabel={abierta ? 'Cerrar la guía' : 'Abrir la guía de esta pantalla'}
+      accessibilityLabel="Abrir la guía de esta pantalla"
     >
-      <Ionicons name={abierta ? 'help-circle' : 'help-circle-outline'} size={28} color={tema.textPrimary} />
-      <Text
-        style={[styles.cerrar, { color: tema.textSecondary, opacity: abierta ? 1 : 0 }]}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      >
-        cerrar
-      </Text>
+      <Ionicons name="help-circle-outline" size={22} color={tema.textPrimary} />
+      <Text style={[styles.texto, { color: tema.textPrimary }]}>¿Cómo se usa?</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  boton: { marginRight: 14, alignItems: 'center', justifyContent: 'center' },
-  cerrar: { fontSize: 11, lineHeight: 13, fontWeight: '600' },
+  boton: {
+    marginRight: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  texto: { fontSize: 15, fontWeight: '700' },
 });

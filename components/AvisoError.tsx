@@ -1,5 +1,5 @@
 import { ComponentProps, useCallback, useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -169,7 +169,10 @@ function FilaAviso({
 // cuando falla una ACCIÓN (subir, guardar, borrar) o hay que avisar algo corto.
 // Tocarlo lo cierra. Lo muestra AvisosContext; las pantallas no lo usan directo.
 // ---------------------------------------------------------------------------
-const ALTO_FUERA = -200;
+// En el celular el aviso baja desde arriba. En la versión de escritorio (web)
+// sube desde abajo, porque arriba están los formularios y se pisaban.
+const EN_WEB = Platform.OS === 'web';
+const ALTO_FUERA = EN_WEB ? 200 : -200;
 
 export function AvisoFlotante({ aviso, onCerrar }: { aviso: Aviso; onCerrar: () => void }) {
   const { tema } = useTheme();
@@ -203,8 +206,13 @@ export function AvisoFlotante({ aviso, onCerrar }: { aviso: Aviso; onCerrar: () 
   }, []);
 
   return (
-    <View style={[styles.capaAviso, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-      <Animated.View style={{ transform: [{ translateY: y }], opacity: opacidad }}>
+    <View
+      style={[styles.capaAviso, EN_WEB ? styles.capaAvisoWeb : { paddingTop: insets.top + 8 }]}
+      pointerEvents="box-none"
+    >
+      <Animated.View
+        style={[{ transform: [{ translateY: y }], opacity: opacidad }, EN_WEB && styles.avisoWebAncho]}
+      >
         <Pressable
           onPress={cerrar}
           style={[styles.aviso, { backgroundColor: tema.card, borderColor: tema.primary }]}
@@ -260,6 +268,9 @@ const styles = StyleSheet.create({
 
   // Aviso flotante
   capaAviso: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 12, zIndex: 1000, elevation: 20 },
+  // Versión de escritorio: abajo y centrado, por encima de la barra de pestañas.
+  capaAvisoWeb: { top: 'auto', bottom: 84, alignItems: 'center' },
+  avisoWebAncho: { width: '100%', maxWidth: 560 },
   aviso: {
     borderWidth: 2,
     borderRadius: 18,
