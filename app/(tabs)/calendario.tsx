@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -45,6 +46,20 @@ type Turno = {
   notes: string | null;
 };
 
+// Fila "especial" de la lista: va entre los turnos próximos y los pasados y lleva
+// los botones para ver/ocultar y borrar los pasados. Su id (-1) nunca choca con
+// el de un turno real.
+type Separador = { id: -1; separador: true };
+type Fila = Turno | Separador;
+const SEPARADOR: Separador = { id: -1, separador: true };
+const esSeparador = (fila: Fila): fila is Separador => 'separador' in fila;
+
+// Orden cronológico: fecha y después hora (sin hora = primero del día).
+function compararTurnos(a: Turno, b: Turno): number {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  return (a.time || '').localeCompare(b.time || '');
+}
+
 function horaCorta(hora: string | null): string {
   if (!hora) return '';
   return hora.slice(0, 5); // 'HH:MM:SS' -> 'HH:MM'
@@ -74,6 +89,10 @@ export default function Calendario() {
   const [eliminando, setEliminando] = useState(false);
   // null = formulario de turno NUEVO; con un turno = formulario de EDICIÓN.
   const [turnoEditando, setTurnoEditando] = useState<Turno | null>(null);
+  // Los turnos de días anteriores a hoy empiezan ocultos; este botón los muestra.
+  const [mostrarPasados, setMostrarPasados] = useState(false);
+  // Mientras se borran los turnos viejos: cuántos van de cuántos (null = no se está borrando).
+  const [progresoBorrado, setProgresoBorrado] = useState<{ hechos: number; total: number } | null>(null);
 
   // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista.
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -141,15 +160,30 @@ export default function Calendario() {
     return marcas;
   }, [turnos, diaSeleccionado, tema.primary]);
 
-  // Lista a mostrar: si hay un día tocado, solo los turnos de ese día.
-  // Si no, todos, ordenados por fecha y hora.
-  const turnosAMostrar = useMemo(() => {
-    const lista = diaSeleccionado ? turnos.filter((t) => t.date === diaSeleccionado) : [...turnos];
-    return lista.sort((a, b) => {
-      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-      return (a.time || '').localeCompare(b.time || '');
-    });
-  }, [turnos, diaSeleccionado]);
+  // Dos grupos:
+  //  - próximos: los de HOY (aunque su hora ya haya pasado, por si se olvidó) y los futuros,
+  //    del más cercano al más lejano;
+  //  - pasados: los de días anteriores a hoy, del más reciente al más viejo
+  //    (así la última cita queda arriba).
+  const { proximos, pasados } = useMemo(() => {
+    const hoy = fechaDeHoy();
+    return {
+      proximos: turnos.filter((t) => t.date >= hoy).sort(compararTurnos),
+      pasados: turnos.filter((t) => t.date < hoy).sort((a, b) => compararTurnos(b, a)),
+    };
+  }, [turnos]);
+
+  // Lista que se dibuja: si hay un día tocado, solo los turnos de ese día (también si es
+  // un día pasado). Si no: próximos, luego la fila de botones y, si se pidió, los pasados.
+  const filas: Fila[] = useMemo(() => {
+    if (diaSeleccionado) return turnos.filter((t) => t.date === diaSeleccionado).sort(compararTurnos);
+    const lista: Fila[] = [...proximos];
+    if (pasados.length > 0) {
+      lista.push(SEPARADOR);
+      if (mostrarPasados) lista.push(...pasados);
+    }
+    return lista;
+  }, [turnos, diaSeleccionado, proximos, pasados, mostrarPasados]);
 
   // Formulario de turno NUEVO. Sin fecha: usa el día filtrado o, si no hay, hoy.
   const abrirFormulario = (fecha?: string) => {
@@ -278,6 +312,53 @@ export default function Calendario() {
     if (seguro) await eliminarTurno(turno);
   };
 
+  // Borra los turnos pasados de a uno (el backend solo sabe borrar de a uno y cada borrado
+  // también quita el evento de Google Calendar). Si uno falla, se corta ahí y se ofrece
+  // reintentar solo con los que faltan: nunca se dice "listo" si no se borró todo.
+  const borrarListaDeViejos = async (lista: Turno[], total: number) => {
+    setProgresoBorrado({ hechos: total - lista.length, total });
+    let corte = -1;
+    let ultimoError: unknown = null;
+    for (let i = 0; i < lista.length; i++) {
+      setProgresoBorrado({ hechos: total - lista.length + i, total });
+      try {
+        await api.delete(`/appointments/${lista[i].id}`);
+      } catch (e: any) {
+        if (e?.response?.status === 404) continue; // ya no existía: cuenta como borrado
+        corte = i;
+        ultimoError = e;
+        break;
+      }
+    }
+    setProgresoBorrado(null);
+    await cargarTurnos(true);
+    if (corte >= 0) {
+      const pendientes = lista.slice(corte);
+      mostrarError(ultimoError, {
+        que: pendientes.length === 1 ? 'borrar el último turno viejo' : `borrar los ${pendientes.length} turnos viejos que faltan`,
+        onReintentar: () => borrarListaDeViejos(pendientes, total),
+      });
+      return;
+    }
+    setMostrarPasados(false);
+    mostrarAviso('Listo', total === 1 ? 'Se borró 1 turno viejo.' : `Se borraron ${total} turnos viejos.`, {
+      icono: 'trash-outline',
+    });
+  };
+
+  const confirmarBorrarViejos = async () => {
+    if (pasados.length === 0 || progresoBorrado) return;
+    const lista = [...pasados];
+    const cuantos = lista.length === 1 ? 'el turno pasado' : `los ${lista.length} turnos pasados`;
+    const seguro = await confirmar({
+      titulo: 'Borrar turnos viejos',
+      mensaje: `¿Querés borrar ${cuantos}? También se borran de Google Calendar y no se puede deshacer. Los de hoy y los próximos no se tocan.`,
+      textoConfirmar: 'Borrar',
+      peligro: true,
+    });
+    if (seguro) await borrarListaDeViejos(lista, lista.length);
+  };
+
   if (cargandoHijos && hijos.length === 0) {
     return (
       <View style={styles.centro}>
@@ -359,8 +440,8 @@ export default function Calendario() {
 
       <View style={{ flex: 1 }} onLayout={(e) => setAlturaLista(e.nativeEvent.layout.height)}>
         <Animated.FlatList
-          data={cargando || error ? [] : turnosAMostrar}
-          keyExtractor={(item: Turno) => String(item.id)}
+          data={cargando || error ? [] : filas}
+          keyExtractor={(item: Fila) => String(item.id)}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -375,6 +456,18 @@ export default function Calendario() {
             />
           }
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+          ListHeaderComponent={
+            !cargando && !error && !diaSeleccionado && proximos.length === 0 && pasados.length > 0 ? (
+              <EstadoVacio
+                variante="compacta"
+                icono="calendar-outline"
+                titulo="No tenés turnos próximos"
+                mensaje="Los turnos anteriores a hoy están guardados abajo."
+                etiquetaAccion="Agendar turno"
+                onAccion={() => abrirFormulario()}
+              />
+            ) : null
+          }
           ListEmptyComponent={
             cargando ? (
               <View style={styles.centroFlex}>
@@ -405,14 +498,13 @@ export default function Calendario() {
               )
             )
           }
-          renderItem={({ item, index }: { item: Turno; index: number }) => {
-            const pasado = esTurnoPasado(item.date, item.time);
+          renderItem={({ item, index }: { item: Fila; index: number }) => {
 
             // Posición de la tarjeta dentro de la lista (suma de las alturas de las anteriores).
             const viewport = alturaLista || 400;
             const h = Math.min(alturas[item.id] ?? ALTURA_ESTIMADA, viewport);
             let y = 0;
-            for (let j = 0; j < index; j++) y += alturas[turnosAMostrar[j].id] ?? ALTURA_ESTIMADA;
+            for (let j = 0; j < index; j++) y += alturas[filas[j].id] ?? ALTURA_ESTIMADA;
             const zona = h * 0.8; // tramo en el que se va volviendo transparente
             // scrollY -> [invisible abajo, visible, visible, invisible arriba]
             const entrada = [y + h - viewport - zona, y + h - viewport, y, y + zona];
@@ -435,6 +527,46 @@ export default function Calendario() {
                   setAlturas((prev) => (prev[item.id] === alto ? prev : { ...prev, [item.id]: alto }));
                 }}
               >
+                {esSeparador(item) ? (
+                  <View style={styles.zonaPasados}>
+                    {/* Mismo tamaño y forma que los títulos de carpeta de Docs. */}
+                    <TouchableOpacity
+                      style={[
+                        styles.botonPasados,
+                        { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
+                      ]}
+                      onPress={() => setMostrarPasados((v) => !v)}
+                      disabled={progresoBorrado !== null}
+                      activeOpacity={0.7}
+                      accessibilityLabel={mostrarPasados ? 'Ocultar turnos pasados' : 'Ver turnos pasados'}
+                    >
+                      <Ionicons name="time-outline" size={22} color="#1F1F1F" />
+                      <Text style={styles.botonPasadosTexto} numberOfLines={1}>
+                        {mostrarPasados ? 'Ocultar turnos pasados' : 'Ver turnos pasados'}
+                      </Text>
+                      <View style={[styles.contadorPasados, { backgroundColor: tema.primary }]}>
+                        <Text style={styles.contadorPasadosTexto}>{pasados.length}</Text>
+                      </View>
+                      <Ionicons name={mostrarPasados ? 'chevron-down' : 'chevron-forward'} size={20} color="#1F1F1F" />
+                    </TouchableOpacity>
+                    {mostrarPasados && (
+                      <TouchableOpacity
+                        style={[styles.botonPasados, styles.botonViejos]}
+                        onPress={confirmarBorrarViejos}
+                        disabled={progresoBorrado !== null}
+                        activeOpacity={0.7}
+                        accessibilityLabel="Borrar turnos viejos"
+                      >
+                        <Ionicons name="trash-outline" size={22} color="#c62828" />
+                        <Text style={styles.botonViejosTexto} numberOfLines={1}>
+                          {progresoBorrado
+                            ? `Borrando ${Math.min(progresoBorrado.hechos + 1, progresoBorrado.total)} de ${progresoBorrado.total}…`
+                            : 'Borrar turnos viejos'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
                 <TouchableOpacity
                   style={styles.card}
                   onLongPress={() => abrirEdicion(item)}
@@ -445,7 +577,11 @@ export default function Calendario() {
                   <View
                     style={[
                       styles.fechaBox,
-                      { backgroundColor: pasado ? colorConOpacidad(tema.primary, 0.5) : tema.primary },
+                      {
+                        backgroundColor: esTurnoPasado(item.date, item.time)
+                          ? colorConOpacidad(tema.primary, 0.5)
+                          : tema.primary,
+                      },
                     ]}
                   >
                     <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
@@ -459,6 +595,7 @@ export default function Calendario() {
                     </Text>
                   </View>
                 </TouchableOpacity>
+                )}
               </Animated.View>
             );
           }}
@@ -567,6 +704,23 @@ const styles = StyleSheet.create({
   },
   fechaBoxTexto: { color: '#1F1F1F', fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
   fechaBoxMes: { color: '#1F1F1F', fontSize: 12, fontWeight: '600' },
+  zonaPasados: { marginTop: 10, marginBottom: 2, gap: 8 },
+  // Igual que EncabezadoCarpeta de Docs: bajo, con borde y tinte del color.
+  botonPasados: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  botonPasadosTexto: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1F1F1F' },
+  contadorPasados: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  contadorPasadosTexto: { fontSize: 13, fontWeight: 'bold', color: '#1F1F1F' },
+  // Rojo fijo, igual que los demás botones de eliminar.
+  botonViejos: { borderColor: '#c62828', backgroundColor: '#c628281F' },
+  botonViejosTexto: { flex: 1, fontSize: 16, fontWeight: '700', color: '#c62828' },
   nombre: { fontSize: 18, fontWeight: '600' },
   estado: { fontSize: 15, color: '#3F3F3F' },
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },

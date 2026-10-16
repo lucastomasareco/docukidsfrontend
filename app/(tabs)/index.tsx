@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  Animated,
   TouchableOpacity,
   TextInput,
   StyleSheet,
@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
 import { useAuth } from '../../context/AuthContext';
@@ -26,7 +27,11 @@ import EstadoVacio from '../../components/EstadoVacio';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
-import { fechaCorta } from '../../lib/fechas';
+import { colorConOpacidad, fechaCorta } from '../../lib/fechas';
+import { CARPETA_POR_DEFECTO, SUELTO, useCarpetas } from '../../lib/carpetas';
+import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
+import SelectorCarpeta from '../../components/SelectorCarpeta';
+import AsaArrastre from '../../components/AsaArrastre';
 
 type Documento = {
   id: number;
@@ -37,11 +42,34 @@ type Documento = {
   drive_link: string | null;
 };
 
+// Lo que se dibuja en la lista: documentos, títulos de carpeta y avisos chicos.
+type Fila =
+  | { tipo: 'doc'; clave: string; doc: Documento; sangria: boolean }
+  | { tipo: 'carpeta'; clave: string; nombre: string; id: string; cantidad: number; abierta: boolean }
+  | { tipo: 'vacia'; clave: string; carpetaId: string }
+  | { tipo: 'etiqueta'; clave: string; texto: string }
+  | { tipo: 'zonaSuelto'; clave: string }; // solo aparece mientras se arrastra, si no hay documentos sueltos
+
+// Documento que se está arrastrando. top = dónde está su tarjeta en la pantalla (de la lista) al agarrarlo.
+type Arrastre = { doc: Documento; clave: string; top: number };
+// Dónde se marca que va a caer: antes/después de un documento, o "dentro" de una carpeta/zona.
+type Indicador = { clave: string; lado: 'antes' | 'despues' | 'dentro' };
+type Destino = { carpetaId: string; indice: number; indicador: Indicador };
+
+// Mitad del alto de una tarjeta de documento: el "centro" del documento arrastrado.
+const MEDIA_CARTA = 36;
+
+// null = sin formulario de carpeta; 'nueva' = crear; con un id = renombrar esa carpeta.
+type FormCarpeta = { modo: 'nueva' } | { modo: 'editar'; id: string };
+
 type ArchivoElegido = {
   uri: string;
   mimeType: string;
   nombreArchivo: string;
 };
+
+// Alto estimado de una tarjeta (con su margen) hasta que se mide de verdad.
+const ALTURA_ESTIMADA = 82;
 
 const COLOR_POR_ESTADO: Record<Documento['status'], string> = {
   vigente: '#2e7d32',
@@ -94,6 +122,87 @@ export default function Docs() {
   // null = todavía no sabemos (evita el "flash" del botón); true/false = confirmado.
   const [googleConectado, setGoogleConectado] = useState<boolean | null>(null);
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
+
+  // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista
+  // (igual que en Calendario).
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [alturaLista, setAlturaLista] = useState(0);
+  const [alturas, setAlturas] = useState<Record<string, number>>({});
+
+  // Carpetas (solo visuales, guardadas en el teléfono).
+  const {
+    carpetas,
+    carpetaDe,
+    moverDocumento,
+    colocarDocumento,
+    ordenar,
+    crearCarpeta,
+    renombrarCarpeta,
+    eliminarCarpeta,
+    existeNombre,
+  } = useCarpetas(usuarioId);
+  const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
+  const [carpetaDestino, setCarpetaDestino] = useState(CARPETA_POR_DEFECTO); // al subir
+  const [carpetaEdicion, setCarpetaEdicion] = useState(CARPETA_POR_DEFECTO); // al editar
+  const [formCarpeta, setFormCarpeta] = useState<FormCarpeta | null>(null);
+  const [nombreCarpeta, setNombreCarpeta] = useState('');
+
+  // --- Arrastre de documentos ---
+  const [arrastre, setArrastre] = useState<Arrastre | null>(null);
+  const [indicador, setIndicador] = useState<Indicador | null>(null);
+  const dragY = useRef(new Animated.Value(0)).current; // cuánto se movió el dedo (mueve el "fantasma")
+  const listaRef = useRef<any>(null);
+  // Copias en "ref" de lo que necesitan los gestos y el temporizador (así siempre leen lo último).
+  const arrastreRef = useRef<Arrastre | null>(null);
+  const destinoRef = useRef<Destino | null>(null);
+  const dyRef = useRef(0);
+  const offsetRef = useRef(0); // cuánto está desplazada la lista
+  const contenidoAltoRef = useRef(0);
+  const alturaListaRef = useRef(0);
+  const alturasRef = useRef<Record<string, number>>({});
+  const temporizadorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoDesplazarRef = useRef<() => void>(() => {});
+
+  const detenerAutoDesplazar = () => {
+    if (temporizadorRef.current) {
+      clearInterval(temporizadorRef.current);
+      temporizadorRef.current = null;
+    }
+  };
+  useEffect(() => detenerAutoDesplazar, []);
+
+  // Documentos de cada grupo (sueltos y cada carpeta), en el orden que eligió la persona.
+  const grupos = useMemo(() => {
+    const g: Record<string, Documento[]> = {};
+    g[SUELTO] = ordenar(documentos.filter((d) => carpetaDe(d.id) === SUELTO), SUELTO);
+    carpetas.forEach((c) => {
+      g[c.id] = ordenar(documentos.filter((d) => carpetaDe(d.id) === c.id), c.id);
+    });
+    return g;
+  }, [documentos, carpetas, carpetaDe, ordenar]);
+
+  // Orden de la lista: primero los documentos sueltos (siempre a la vista) y después
+  // cada carpeta con su título y, si está abierta, sus documentos.
+  const filas: Fila[] = useMemo(() => {
+    const lista: Fila[] = [];
+    const sueltos = grupos[SUELTO] ?? [];
+    if (sueltos.length > 0) {
+      lista.push({ tipo: 'etiqueta', clave: 'etiqueta-sueltos', texto: 'A la vista' });
+      sueltos.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
+    } else if (arrastre) {
+      // Para poder dejar un documento suelto aunque todavía no haya ninguno.
+      lista.push({ tipo: 'zonaSuelto', clave: 'zona-suelto' });
+    }
+    carpetas.forEach((c) => {
+      const docs = grupos[c.id] ?? [];
+      const abierta = !cerradas[c.id];
+      lista.push({ tipo: 'carpeta', clave: `c-${c.id}`, id: c.id, nombre: c.nombre, cantidad: docs.length, abierta });
+      if (!abierta) return;
+      if (docs.length === 0) lista.push({ tipo: 'vacia', clave: `v-${c.id}`, carpetaId: c.id });
+      else docs.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: true }));
+    });
+    return lista;
+  }, [grupos, carpetas, cerradas, arrastre]);
 
   const verificarGoogle = useCallback(async () => {
     try {
@@ -231,6 +340,7 @@ export default function Docs() {
   };
 
   const abrirOpciones = () => {
+    setCarpetaDestino(CARPETA_POR_DEFECTO);
     setMostrarMenu(true);
   };
 
@@ -261,6 +371,9 @@ export default function Docs() {
         timeout: 120000,
       });
       const nombreSubido = nombreDocumento.trim();
+      // La carpeta es solo visual: se anota en el teléfono y se abre para que se vea el documento nuevo.
+      moverDocumento(respuesta.data.doc_id, carpetaDestino);
+      if (carpetaDestino !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaDestino]: false }));
       cerrarFormulario();
       cargarDocumentos();
       // Pantalla de confirmación de fecha (ver Guía: PATCH /documents/{doc_id}).
@@ -292,6 +405,7 @@ export default function Docs() {
   const abrirEdicion = (doc: Documento) => {
     setEditando(doc);
     setNombreEditado(doc.name);
+    setCarpetaEdicion(carpetaDe(doc.id));
   };
 
   const cerrarEdicion = () => {
@@ -306,6 +420,11 @@ export default function Docs() {
     if (!nombre) {
       mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento.', { icono: 'create-outline' });
       return;
+    }
+    // Mover de carpeta es instantáneo (solo visual); no necesita al servidor.
+    if (carpetaEdicion !== carpetaDe(editando.id)) {
+      moverDocumento(editando.id, carpetaEdicion);
+      if (carpetaEdicion !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaEdicion]: false }));
     }
     if (nombre === editando.name) {
       cerrarEdicion();
@@ -340,6 +459,152 @@ export default function Docs() {
     } catch (e) {
       mostrarError(e, { que: 'borrar el documento', onReintentar: () => borrarDocumento(doc) });
     }
+  };
+
+  // Dónde caería el documento arrastrado según la posición actual del dedo.
+  const calcularDestino = (): Destino | null => {
+    const a = arrastreRef.current;
+    if (!a) return null;
+    let y = 0;
+    const posiciones = filas.map((fila) => {
+      const h = alturasRef.current[fila.clave] ?? ALTURA_ESTIMADA;
+      const p = { fila, y, h };
+      y += h;
+      return p;
+    });
+    if (posiciones.length === 0) return null;
+
+    // Centro del documento arrastrado, medido sobre todo el contenido de la lista.
+    const centro = a.top + dyRef.current + MEDIA_CARTA + offsetRef.current;
+    const bajo =
+      centro < 0 ? posiciones[0] : posiciones.find((p) => centro >= p.y && centro < p.y + p.h) ?? posiciones[posiciones.length - 1];
+    const fila = bajo.fila;
+
+    if (fila.tipo === 'doc') {
+      if (fila.doc.id === a.doc.id) return null; // sigue sobre sí mismo: no cambia nada
+      const carpetaId = carpetaDe(fila.doc.id);
+      const grupo = (grupos[carpetaId] ?? []).filter((d) => d.id !== a.doc.id);
+      const pos = grupo.findIndex((d) => d.id === fila.doc.id);
+      const antes = centro < bajo.y + bajo.h / 2;
+      return { carpetaId, indice: antes ? pos : pos + 1, indicador: { clave: fila.clave, lado: antes ? 'antes' : 'despues' } };
+    }
+    if (fila.tipo === 'carpeta') return { carpetaId: fila.id, indice: 0, indicador: { clave: fila.clave, lado: 'dentro' } };
+    if (fila.tipo === 'vacia') return { carpetaId: fila.carpetaId, indice: 0, indicador: { clave: fila.clave, lado: 'dentro' } };
+    // Rótulo "A la vista" o zona de soltar: queda suelto, al principio.
+    return { carpetaId: SUELTO, indice: 0, indicador: { clave: fila.clave, lado: 'dentro' } };
+  };
+
+  const actualizarArrastre = () => {
+    const destino = calcularDestino();
+    destinoRef.current = destino;
+    const nuevo = destino?.indicador ?? null;
+    setIndicador((prev) => (prev?.clave === nuevo?.clave && prev?.lado === nuevo?.lado ? prev : nuevo));
+  };
+
+  // Si el dedo está cerca del borde de arriba o de abajo, la lista se desplaza sola.
+  autoDesplazarRef.current = () => {
+    const a = arrastreRef.current;
+    if (!a) return;
+    const centro = a.top + dyRef.current + MEDIA_CARTA; // posición en la pantalla de la lista
+    const alto = alturaListaRef.current;
+    const margen = 70;
+    let paso = 0;
+    if (centro < margen) paso = -Math.ceil((margen - centro) / 6);
+    else if (centro > alto - margen) paso = Math.ceil((centro - (alto - margen)) / 6);
+    if (paso === 0) return;
+    const maximo = Math.max(0, contenidoAltoRef.current - alto);
+    const nuevo = Math.min(maximo, Math.max(0, offsetRef.current + paso));
+    if (nuevo === offsetRef.current) return;
+    offsetRef.current = nuevo;
+    listaRef.current?.scrollToOffset?.({ offset: nuevo, animated: false });
+    actualizarArrastre();
+  };
+
+  const iniciarArrastre = (doc: Documento, clave: string) => {
+    let y = 0;
+    for (const fila of filas) {
+      if (fila.clave === clave) break;
+      y += alturasRef.current[fila.clave] ?? ALTURA_ESTIMADA;
+    }
+    const nuevo: Arrastre = { doc, clave, top: y - offsetRef.current };
+    dyRef.current = 0;
+    dragY.setValue(0);
+    arrastreRef.current = nuevo;
+    destinoRef.current = null;
+    setArrastre(nuevo);
+    detenerAutoDesplazar();
+    temporizadorRef.current = setInterval(() => autoDesplazarRef.current(), 16);
+  };
+
+  const moverArrastre = (dy: number) => {
+    dyRef.current = dy;
+    dragY.setValue(dy);
+    actualizarArrastre();
+  };
+
+  const terminarArrastre = (cancelado: boolean) => {
+    detenerAutoDesplazar();
+    const a = arrastreRef.current;
+    const destino = destinoRef.current;
+    arrastreRef.current = null;
+    destinoRef.current = null;
+    setArrastre(null);
+    setIndicador(null);
+    dragY.setValue(0);
+    if (!a || cancelado || !destino) return;
+    // Orden final de la carpeta de destino: sus documentos sin el arrastrado, con este en su lugar.
+    const ids = (grupos[destino.carpetaId] ?? []).filter((d) => d.id !== a.doc.id).map((d) => d.id);
+    ids.splice(destino.indice, 0, a.doc.id);
+    colocarDocumento(a.doc.id, destino.carpetaId, ids);
+    if (destino.carpetaId !== SUELTO) setCerradas((prev) => ({ ...prev, [destino.carpetaId]: false }));
+  };
+
+  const alternarCarpeta = (id: string) => setCerradas((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const abrirNuevaCarpeta = () => {
+    setFormCarpeta({ modo: 'nueva' });
+    setNombreCarpeta('');
+  };
+
+  const abrirEdicionCarpeta = (id: string, nombre: string) => {
+    setFormCarpeta({ modo: 'editar', id });
+    setNombreCarpeta(nombre);
+  };
+
+  const cerrarFormCarpeta = () => {
+    setFormCarpeta(null);
+    setNombreCarpeta('');
+  };
+
+  const guardarCarpeta = () => {
+    if (!formCarpeta) return;
+    const nombre = nombreCarpeta.trim();
+    if (!nombre) {
+      mostrarAviso('Falta el nombre', 'Escribí un nombre para la carpeta (ej. "Vacunas").', { icono: 'create-outline' });
+      return;
+    }
+    if (existeNombre(nombre, formCarpeta.modo === 'editar' ? formCarpeta.id : undefined)) {
+      mostrarAviso('Esa carpeta ya existe', 'Elegí otro nombre para no confundirte.', { icono: 'folder-outline' });
+      return;
+    }
+    if (formCarpeta.modo === 'nueva') crearCarpeta(nombre);
+    else renombrarCarpeta(formCarpeta.id, nombre);
+    cerrarFormCarpeta();
+  };
+
+  const borrarCarpeta = async () => {
+    if (!formCarpeta || formCarpeta.modo !== 'editar') return;
+    const carpeta = carpetas.find((c) => c.id === formCarpeta.id);
+    if (!carpeta) return;
+    const seguro = await confirmar({
+      titulo: 'Eliminar carpeta',
+      mensaje: `¿Eliminar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a la carpeta "Documentos".`,
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    });
+    if (!seguro) return;
+    eliminarCarpeta(carpeta.id);
+    cerrarFormCarpeta();
   };
 
   if (cargandoHijos && hijos.length === 0) {
@@ -408,14 +673,26 @@ export default function Docs() {
         </View>
       )}
 
-      {!mostrarFormulario && !editando && (
-        <TouchableOpacity
-          style={[styles.botonSubirGrande, { backgroundColor: tema.primary }]}
-          onPress={abrirOpciones}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
-        </TouchableOpacity>
+      {!mostrarFormulario && !editando && !formCarpeta && (
+        <>
+          <TouchableOpacity
+            style={[styles.botonSubirGrande, { backgroundColor: tema.primary }]}
+            onPress={abrirOpciones}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
+          </TouchableOpacity>
+          {/* Más chico y solo con borde: es para ordenar, no para subir. */}
+          <TouchableOpacity
+            style={[styles.botonNuevaCarpeta, { borderColor: tema.primary }]}
+            onPress={abrirNuevaCarpeta}
+            activeOpacity={0.7}
+            accessibilityLabel="Crear una carpeta nueva"
+          >
+            <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
+            <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
+          </TouchableOpacity>
+        </>
       )}
 
       {cargando ? (
@@ -434,33 +711,145 @@ export default function Docs() {
         />
       ) : (
         <>
-          <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre o borrarlo.</Text>
-          <FlatList
-            data={documentos}
-            keyExtractor={(item) => String(item.id)}
-            style={styles.listaDocumentos}
-            showsVerticalScrollIndicator
-            persistentScrollbar
-            indicatorStyle="black"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => abrirDocumento(item)}
-                onLongPress={() => abrirEdicion(item)}
-                activeOpacity={0.7}
-                accessibilityHint="Tocá para abrir. Mantené presionado para editar o borrar"
+          <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para renombrarlo o borrarlo. Para moverlo, arrastrá el ícono ≡.</Text>
+          <View style={styles.listaDocumentos} onLayout={(e) => {
+              alturaListaRef.current = e.nativeEvent.layout.height;
+              setAlturaLista(e.nativeEvent.layout.height);
+            }}>
+            <Animated.FlatList
+              ref={listaRef}
+              data={filas}
+              scrollEnabled={!arrastre}
+              onContentSizeChange={(_w: number, h: number) => {
+                contenidoAltoRef.current = h;
+              }}
+              keyExtractor={(item: Fila) => item.clave}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                useNativeDriver: true,
+                listener: (e: any) => {
+                  offsetRef.current = e.nativeEvent.contentOffset.y;
+                  if (arrastreRef.current) actualizarArrastre();
+                },
+              })}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              renderItem={({ item, index }: { item: Fila; index: number }) => {
+                // Posición de la tarjeta dentro de la lista (suma de las alturas de las anteriores).
+                const viewport = alturaLista || 400;
+                const h = Math.min(alturas[item.clave] ?? ALTURA_ESTIMADA, viewport);
+                let y = 0;
+                for (let j = 0; j < index; j++) y += alturas[filas[j].clave] ?? ALTURA_ESTIMADA;
+                const zona = h * 0.8; // tramo en el que se va volviendo transparente
+                // scrollY -> [invisible abajo, visible, visible, invisible arriba]
+                const entrada = [y + h - viewport - zona, y + h - viewport, y, y + zona];
+                const opacity = scrollY.interpolate({
+                  inputRange: entrada,
+                  outputRange: [0, 1, 1, 0],
+                  extrapolate: 'clamp',
+                });
+                const scale = scrollY.interpolate({
+                  inputRange: entrada,
+                  outputRange: [0.92, 1, 1, 0.92],
+                  extrapolate: 'clamp',
+                });
+
+                const lado = indicador?.clave === item.clave ? indicador.lado : null;
+
+                return (
+                  <Animated.View
+                    style={{ opacity, transform: [{ scale }] }}
+                    onLayout={(e) => {
+                      const alto = Math.round(e.nativeEvent.layout.height);
+                      alturasRef.current[item.clave] = alto;
+                      setAlturas((prev) => (prev[item.clave] === alto ? prev : { ...prev, [item.clave]: alto }));
+                    }}
+                  >
+                    <View style={{ opacity: arrastre?.clave === item.clave ? 0.3 : 1 }}>
+                      {item.tipo === 'etiqueta' ? (
+                        <Text style={[styles.etiquetaSeccion, lado === 'dentro' && styles.etiquetaResaltada]}>{item.texto}</Text>
+                      ) : item.tipo === 'zonaSuelto' ? (
+                        <View
+                          style={[
+                            styles.zonaSuelto,
+                            { borderColor: tema.primary },
+                            lado === 'dentro' && { backgroundColor: colorConOpacidad(tema.primary, 0.45) },
+                          ]}
+                        >
+                          <Text style={styles.zonaSueltoTexto}>Soltá acá para dejarlo a la vista</Text>
+                        </View>
+                      ) : item.tipo === 'carpeta' ? (
+                        <EncabezadoCarpeta
+                          nombre={item.nombre}
+                          cantidad={item.cantidad}
+                          abierta={item.abierta}
+                          resaltada={lado === 'dentro'}
+                          onPress={() => alternarCarpeta(item.id)}
+                          onLongPress={() => abrirEdicionCarpeta(item.id, item.nombre)}
+                        />
+                      ) : item.tipo === 'vacia' ? (
+                        <Text style={[styles.carpetaVacia, lado === 'dentro' && styles.vaciaResaltada]}>
+                          {lado === 'dentro' ? 'Soltá acá' : 'Carpeta vacía'}
+                        </Text>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.card, item.sangria && styles.cardEnCarpeta]}
+                          onPress={() => abrirDocumento(item.doc)}
+                          onLongPress={() => abrirEdicion(item.doc)}
+                          activeOpacity={0.7}
+                          accessibilityHint="Tocá para abrir. Mantené presionado para editar, mover o borrar"
+                        >
+                          <View style={[styles.punto, { backgroundColor: COLOR_POR_ESTADO[item.doc.status] }]} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.nombre}>{item.doc.name}</Text>
+                            <Text style={styles.estado}>
+                              {TEXTO_POR_ESTADO[item.doc.status]}
+                              {item.doc.expiry_date ? ` · ${fechaCorta(item.doc.expiry_date)}` : ''}
+                            </Text>
+                          </View>
+                          <AsaArrastre
+                            onInicio={() => iniciarArrastre(item.doc, item.clave)}
+                            onMover={moverArrastre}
+                            onSoltar={(_dy, cancelado) => terminarArrastre(cancelado)}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {/* Línea que marca dónde va a quedar el documento arrastrado. */}
+                    {item.tipo === 'doc' && (lado === 'antes' || lado === 'despues') && (
+                      <View
+                        style={[
+                          styles.lineaDestino,
+                          { backgroundColor: tema.primary },
+                          lado === 'antes' ? { top: -4 } : { bottom: 3 },
+                          item.sangria && { left: 14 },
+                        ]}
+                      />
+                    )}
+                  </Animated.View>
+                );
+              }}
+            />
+            {/* "Fantasma": copia del documento que sigue al dedo mientras se arrastra. */}
+            {arrastre && (
+              <Animated.View
+                style={[
+                  styles.fantasma,
+                  { top: arrastre.top, borderColor: tema.primary, transform: [{ translateY: dragY }] },
+                ]}
               >
-                <View style={[styles.punto, { backgroundColor: COLOR_POR_ESTADO[item.status] }]} />
+                <View style={[styles.punto, { backgroundColor: COLOR_POR_ESTADO[arrastre.doc.status] }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nombre}>{item.name}</Text>
+                  <Text style={styles.nombre}>{arrastre.doc.name}</Text>
                   <Text style={styles.estado}>
-                    {TEXTO_POR_ESTADO[item.status]}
-                    {item.expiry_date ? ` · ${fechaCorta(item.expiry_date)}` : ''}
+                    {TEXTO_POR_ESTADO[arrastre.doc.status]}
+                    {arrastre.doc.expiry_date ? ` · ${fechaCorta(arrastre.doc.expiry_date)}` : ''}
                   </Text>
                 </View>
-              </TouchableOpacity>
+                <Ionicons name="reorder-three-outline" size={28} color="#3F3F3F" />
+              </Animated.View>
             )}
-          />
+          </View>
         </>
       )}
 
@@ -483,6 +872,12 @@ export default function Docs() {
             value={nombreDocumento}
             onChangeText={setNombreDocumento}
             autoFocus
+          />
+          <SelectorCarpeta
+            etiqueta="¿Dónde lo guardo?"
+            carpetas={carpetas}
+            valor={carpetaDestino}
+            onCambiar={setCarpetaDestino}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -517,6 +912,12 @@ export default function Docs() {
             onChangeText={setNombreEditado}
             autoFocus
           />
+          <SelectorCarpeta
+            etiqueta="Carpeta"
+            carpetas={carpetas}
+            valor={carpetaEdicion}
+            onCambiar={setCarpetaEdicion}
+          />
           <View style={styles.filaBotones}>
             <TouchableOpacity
               style={[styles.botonForm, styles.botonCancelar]}
@@ -540,6 +941,37 @@ export default function Docs() {
           >
             <Text style={styles.botonEliminarTexto}>Eliminar documento</Text>
           </TouchableOpacity>
+        </FormularioSuperior>
+      )}
+
+      {formCarpeta && (
+        <FormularioSuperior onCerrar={cerrarFormCarpeta}>
+          <Text style={styles.tituloEdicion}>{formCarpeta.modo === 'nueva' ? 'Nueva carpeta' : 'Editar carpeta'}</Text>
+          <TextInput
+            placeholderTextColor="#5F5F5F"
+            style={styles.input}
+            placeholder='Nombre de la carpeta (ej. "Vacunas")'
+            value={nombreCarpeta}
+            onChangeText={setNombreCarpeta}
+            maxLength={30}
+            autoFocus
+          />
+          <View style={styles.filaBotones}>
+            <TouchableOpacity style={[styles.botonForm, styles.botonCancelar]} onPress={cerrarFormCarpeta}>
+              <Text style={styles.botonTexto}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
+              onPress={guardarCarpeta}
+            >
+              <Text style={styles.botonTexto}>{formCarpeta.modo === 'nueva' ? 'Crear' : 'Guardar'}</Text>
+            </TouchableOpacity>
+          </View>
+          {formCarpeta.modo === 'editar' && !carpetas.find((c) => c.id === formCarpeta.id)?.fija && (
+            <TouchableOpacity style={styles.botonEliminar} onPress={borrarCarpeta}>
+              <Text style={styles.botonEliminarTexto}>Eliminar carpeta</Text>
+            </TouchableOpacity>
+          )}
         </FormularioSuperior>
       )}
 
@@ -605,13 +1037,58 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 10,
     elevation: 3,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
   botonSubirGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
+  // Más bajo y con solo borde: se distingue del botón grande SUBIR DOCUMENTO.
+  botonNuevaCarpeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginBottom: 14,
+  },
+  botonNuevaCarpetaTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
+  etiquetaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#3F3F3F', marginTop: 4, marginBottom: 6, textTransform: 'uppercase' },
+  carpetaVacia: { fontSize: 14, color: '#3F3F3F', fontStyle: 'italic', marginLeft: 14, marginBottom: 10 },
+  cardEnCarpeta: { marginLeft: 14 },
+  etiquetaResaltada: { color: '#1F1F1F', textDecorationLine: 'underline' },
+  vaciaResaltada: { fontWeight: 'bold', fontStyle: 'normal', color: '#1F1F1F' },
+  zonaSuelto: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  zonaSueltoTexto: { fontSize: 14, fontWeight: '600', color: '#3F3F3F' },
+  lineaDestino: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
+  fantasma: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    pointerEvents: 'none',
+  },
   listaDocumentos: { flex: 1 },
   card: {
     flexDirection: 'row',
