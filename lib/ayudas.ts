@@ -4,7 +4,7 @@
 export type PantallaAyuda = 'docs' | 'calendario' | 'hijos' | 'ajustes';
 
 export type ConsejoAyuda = {
-  icono: 'cloud-upload-outline' | 'hand-left-outline' | 'color-palette-outline' | 'calendar-outline'
+  icono: 'cloud-upload-outline' | 'search-outline' | 'reorder-three-outline' | 'folder-open-outline' | 'hand-left-outline' | 'color-palette-outline' | 'calendar-outline'
     | 'add-circle-outline' | 'people-outline' | 'logo-google' | 'lock-closed-outline' | 'mail-outline'
     | 'checkmark-circle-outline' | 'trash-outline';
   texto: string;
@@ -21,7 +21,9 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
     consejos: [
       { icono: 'cloud-upload-outline', texto: 'Tocá SUBIR DOCUMENTO y elegí una foto o un PDF (DNI, carnet de vacunas…).' },
       { icono: 'checkmark-circle-outline', texto: 'Si tiene fecha de vencimiento, la app la detecta y te pide confirmarla. Te avisamos por email antes de que venza.' },
-      { icono: 'hand-left-outline', texto: 'Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre o borrarlo.' },
+      { icono: 'hand-left-outline', texto: 'Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre, moverlo de carpeta o borrarlo.' },
+      { icono: 'reorder-three-outline', texto: 'Para ordenar, agarrá el ícono ≡ de un documento y arrastralo: soltalo en otra carpeta, entre otros documentos o arriba, en "A la vista".' },
+      { icono: 'folder-open-outline', texto: 'Los documentos se ordenan en carpetas (Documentos, Salud, Escuela). Tocá el título de una carpeta para cerrarla o abrirla; mantenelo presionado para cambiarle el nombre. Con Nueva carpeta creás las que quieras.' },
       { icono: 'color-palette-outline', texto: 'Verde: vigente. Naranja: vence en 30 días o menos. Rojo: vencido.' },
     ],
   },
@@ -32,12 +34,14 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'calendar-outline', texto: 'Tocá un día con turnos para ver solo los de ese día. Tocalo de nuevo para ver todos.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o eliminarlo.' },
       { icono: 'mail-outline', texto: 'Los turnos también se guardan en tu Google Calendar.' },
+      { icono: 'trash-outline', texto: 'Arriba ves los turnos de hoy y los próximos. Los anteriores quedan guardados: tocá Ver turnos pasados para consultarlos o Borrar turnos viejos para limpiarlos.' },
     ],
   },
   hijos: {
     titulo: 'Cómo usar Hijos',
     consejos: [
       { icono: 'people-outline', texto: 'Tocá Registrar hijo para crear su perfil. Podés agregar a todos los que quieras.' },
+      { icono: 'search-outline', texto: 'Con la lupa buscás a tu hijo por las primeras letras de su nombre (por ejemplo "Luc"). Tocá la X para ver a todos de nuevo.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un hijo para cambiarle el nombre o eliminarlo.' },
       { icono: 'checkmark-circle-outline', texto: 'El hijo que tocás queda elegido: sus documentos y turnos aparecen en Docs y Calendario.' },
     ],

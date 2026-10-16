@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  AccessibilityInfo,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useChildren, type Hijo } from '../../context/ChildrenContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAvisos } from '../../context/AvisosContext';
@@ -16,6 +18,17 @@ import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
 import FormularioSuperior from '../../components/FormularioSuperior';
+import { colorConOpacidad } from '../../lib/fechas';
+
+// Para comparar nombres: sin mayúsculas, sin tildes y sin espacios de más.
+// Así "Lucía", "lucia" y "LUC" coinciden al buscar.
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
 
 function inicial(nombre: string): string {
   return nombre.charAt(0).toUpperCase();
@@ -40,6 +53,27 @@ export default function Hijos() {
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [hijoEditando, setHijoEditando] = useState<Hijo | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+
+  // Buscador: muestra los hijos cuyo nombre EMPIEZA con lo escrito (L, Lu, Luc…).
+  const textoBuscado = normalizar(busqueda);
+  const hijosVisibles = useMemo(
+    () => (textoBuscado ? hijos.filter((h) => normalizar(h.name).startsWith(textoBuscado)) : hijos),
+    [hijos, textoBuscado]
+  );
+
+  // Accesibilidad: un lector de pantalla dice cuántos resultados hay (con una pequeña
+  // espera para no hablar encima mientras se escribe).
+  useEffect(() => {
+    if (!textoBuscado) return;
+    const espera = setTimeout(() => {
+      const n = hijosVisibles.length;
+      AccessibilityInfo.announceForAccessibility(
+        n === 0 ? 'No hay hijos con ese nombre' : n === 1 ? '1 hijo encontrado' : `${n} hijos encontrados`
+      );
+    }, 700);
+    return () => clearTimeout(espera);
+  }, [textoBuscado, hijosVisibles.length]);
 
   useFocusEffect(
     useCallback(() => {
@@ -156,8 +190,43 @@ export default function Hijos() {
         </TouchableOpacity>
       )}
 
-      {hijos.length > 0 && (
-        <Text style={styles.ayuda}>Mantené presionado un hijo para cambiarle el nombre o eliminarlo.</Text>
+      {/* Buscador: mismo estilo que los títulos de carpeta de Docs. */}
+      {hijos.length > 0 && !mostrarFormulario && (
+        <View
+          style={[
+            styles.buscador,
+            { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
+          ]}
+        >
+          <Ionicons name="search-outline" size={22} color="#1F1F1F" />
+          <TextInput
+            style={styles.buscadorInput}
+            placeholder="Buscar hijo/a"
+            placeholderTextColor="#5F5F5F"
+            value={busqueda}
+            onChangeText={setBusqueda}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel="Buscar hijo por nombre"
+            accessibilityHint="Escribí las primeras letras del nombre"
+          />
+          {busqueda.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setBusqueda('')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Borrar búsqueda"
+            >
+              <Ionicons name="close-circle" size={22} color="#3F3F3F" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      {textoBuscado.length > 0 && hijosVisibles.length > 0 && (
+        <Text style={styles.resultados}>
+          {hijosVisibles.length} de {hijos.length} {hijos.length === 1 ? 'hijo' : 'hijos'}
+        </Text>
       )}
 
       {hijos.length === 0 ? (
@@ -170,8 +239,19 @@ export default function Hijos() {
         )
       ) : (
         <FlatList
-          data={hijos}
+          data={hijosVisibles}
+          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => String(item.id)}
+          ListEmptyComponent={
+            <EstadoVacio
+              variante="compacta"
+              icono="search-outline"
+              titulo="No encontramos a ningún hijo con ese nombre"
+              mensaje="Revisá cómo lo escribiste: se busca por las primeras letras."
+              etiquetaAccion="Borrar búsqueda"
+              onAccion={() => setBusqueda('')}
+            />
+          }
           renderItem={({ item }) => {
             const seleccionado = item.id === seleccionadoId;
             return (
@@ -246,11 +326,24 @@ const styles = StyleSheet.create({
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   textoGuiaSuave: { fontSize: 16, color: '#3F3F3F', marginTop: 0, marginBottom: 14 },
   ayuda: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
+  // Igual que EncabezadoCarpeta de Docs: bajo, con borde y tinte del color del tema.
+  buscador: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginBottom: 12,
+  },
+  buscadorInput: { flex: 1, fontSize: 16, color: '#1F1F1F', paddingVertical: 8 },
+  resultados: { fontSize: 14, color: '#3F3F3F', marginBottom: 8 },
   botonAgendarGrande: {
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     elevation: 3,
     shadowColor: '#000',
     shadowOpacity: 0.15,
