@@ -29,7 +29,7 @@ import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import { colorConOpacidad, fechaCorta } from '../../lib/fechas';
-import { CARPETA_POR_DEFECTO, SUELTO, useCarpetas } from '../../lib/carpetas';
+import { SUELTO, useCarpetas } from '../../lib/carpetas';
 import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
 import SelectorCarpeta from '../../components/SelectorCarpeta';
 import AsaArrastre from '../../components/AsaArrastre';
@@ -41,6 +41,7 @@ type Documento = {
   no_expiry: boolean;
   status: 'vigente' | 'proximo' | 'vencido' | 'sin_fecha' | 'sin_vencimiento';
   drive_link: string | null;
+  folder_id: number | null; // null = suelto, en la raíz "Docukids" ("A la vista")
 };
 
 // Lo que se dibuja en la lista: documentos, títulos de carpeta y avisos chicos.
@@ -130,12 +131,16 @@ export default function Docs() {
   const [alturaLista, setAlturaLista] = useState(0);
   const [alturas, setAlturas] = useState<Record<string, number>>({});
 
-  // Carpetas (solo visuales, guardadas en el teléfono).
+  // Carpetas: vienen del backend (y se crean también en Drive). Solo el orden queda en el teléfono.
   const {
     carpetas,
+    cargando: cargandoCarpetas,
+    error: errorCarpetas,
+    recargar: recargarCarpetas,
     carpetaDe,
-    moverDocumento,
-    colocarDocumento,
+    carpetaPorDefecto,
+    olvidarOrden,
+    colocarOrden,
     ordenar,
     crearCarpeta,
     renombrarCarpeta,
@@ -143,10 +148,11 @@ export default function Docs() {
     existeNombre,
   } = useCarpetas(usuarioId);
   const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
-  const [carpetaDestino, setCarpetaDestino] = useState(CARPETA_POR_DEFECTO); // al subir
-  const [carpetaEdicion, setCarpetaEdicion] = useState(CARPETA_POR_DEFECTO); // al editar
+  const [carpetaDestino, setCarpetaDestino] = useState<string>(SUELTO); // al subir
+  const [carpetaEdicion, setCarpetaEdicion] = useState<string>(SUELTO); // al editar
   const [formCarpeta, setFormCarpeta] = useState<FormCarpeta | null>(null);
   const [nombreCarpeta, setNombreCarpeta] = useState('');
+  const [guardandoCarpeta, setGuardandoCarpeta] = useState(false);
 
   // --- Arrastre de documentos ---
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
@@ -175,9 +181,9 @@ export default function Docs() {
   // Documentos de cada grupo (sueltos y cada carpeta), en el orden que eligió la persona.
   const grupos = useMemo(() => {
     const g: Record<string, Documento[]> = {};
-    g[SUELTO] = ordenar(documentos.filter((d) => carpetaDe(d.id) === SUELTO), SUELTO);
+    g[SUELTO] = ordenar(documentos.filter((d) => carpetaDe(d.folder_id) === SUELTO), SUELTO);
     carpetas.forEach((c) => {
-      g[c.id] = ordenar(documentos.filter((d) => carpetaDe(d.id) === c.id), c.id);
+      g[c.id] = ordenar(documentos.filter((d) => carpetaDe(d.folder_id) === c.id), c.id);
     });
     return g;
   }, [documentos, carpetas, carpetaDe, ordenar]);
@@ -341,7 +347,7 @@ export default function Docs() {
   };
 
   const abrirOpciones = () => {
-    setCarpetaDestino(CARPETA_POR_DEFECTO);
+    setCarpetaDestino(carpetaPorDefecto);
     setMostrarMenu(true);
   };
 
@@ -376,6 +382,8 @@ export default function Docs() {
       }
       formData.append('child_id', String(seleccionadoId));
       formData.append('name', nombreDocumento.trim());
+      // Sin folder_id el backend lo deja suelto, en la raíz "Docukids".
+      if (carpetaDestino !== SUELTO) formData.append('folder_id', carpetaDestino);
 
       // En web NO se fija el Content-Type a mano: el navegador lo arma solo
       // (con el "boundary" que necesita el multipart).
@@ -384,8 +392,7 @@ export default function Docs() {
         timeout: 120000,
       });
       const nombreSubido = nombreDocumento.trim();
-      // La carpeta es solo visual: se anota en el teléfono y se abre para que se vea el documento nuevo.
-      moverDocumento(respuesta.data.doc_id, carpetaDestino);
+      // Se abre la carpeta para que se vea el documento nuevo (ya quedó dentro de ella en Drive).
       if (carpetaDestino !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaDestino]: false }));
       cerrarFormulario();
       cargarDocumentos();
@@ -418,7 +425,7 @@ export default function Docs() {
   const abrirEdicion = (doc: Documento) => {
     setEditando(doc);
     setNombreEditado(doc.name);
-    setCarpetaEdicion(carpetaDe(doc.id));
+    setCarpetaEdicion(carpetaDe(doc.folder_id));
   };
 
   const cerrarEdicion = () => {
@@ -434,25 +441,29 @@ export default function Docs() {
       mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento.', { icono: 'create-outline' });
       return;
     }
-    // Mover de carpeta es instantáneo (solo visual); no necesita al servidor.
-    if (carpetaEdicion !== carpetaDe(editando.id)) {
-      moverDocumento(editando.id, carpetaEdicion);
-      if (carpetaEdicion !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaEdicion]: false }));
-    }
-    if (nombre === editando.name) {
+    // Un solo PATCH con lo que cambió: nombre y/o carpeta (el backend mueve el archivo en Drive).
+    const cambios: { name?: string; folder_id?: number | null } = {};
+    if (nombre !== editando.name) cambios.name = nombre;
+    const cambiaCarpeta = carpetaEdicion !== carpetaDe(editando.folder_id);
+    if (cambiaCarpeta) cambios.folder_id = carpetaEdicion === SUELTO ? null : Number(carpetaEdicion);
+    if (Object.keys(cambios).length === 0) {
       cerrarEdicion();
       return;
     }
     setGuardandoEdicion(true);
     try {
-      await api.patch(`/documents/${editando.id}`, { name: nombre });
+      await api.patch(`/documents/${editando.id}`, cambios);
+      if (cambiaCarpeta) {
+        olvidarOrden(editando.id);
+        if (carpetaEdicion !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaEdicion]: false }));
+      }
       setGuardandoEdicion(false);
       setEditando(null);
       setNombreEditado('');
       cargarDocumentos();
     } catch (e) {
       setGuardandoEdicion(false);
-      mostrarError(e, { que: 'guardar el nombre', onReintentar: guardarEdicion });
+      mostrarError(e, { que: 'guardar los cambios', onReintentar: guardarEdicion });
     }
   };
 
@@ -495,7 +506,7 @@ export default function Docs() {
 
     if (fila.tipo === 'doc') {
       if (fila.doc.id === a.doc.id) return null; // sigue sobre sí mismo: no cambia nada
-      const carpetaId = carpetaDe(fila.doc.id);
+      const carpetaId = carpetaDe(fila.doc.folder_id);
       const grupo = (grupos[carpetaId] ?? []).filter((d) => d.id !== a.doc.id);
       const pos = grupo.findIndex((d) => d.id === fila.doc.id);
       const antes = centro < bajo.y + bajo.h / 2;
@@ -568,8 +579,24 @@ export default function Docs() {
     // Orden final de la carpeta de destino: sus documentos sin el arrastrado, con este en su lugar.
     const ids = (grupos[destino.carpetaId] ?? []).filter((d) => d.id !== a.doc.id).map((d) => d.id);
     ids.splice(destino.indice, 0, a.doc.id);
-    colocarDocumento(a.doc.id, destino.carpetaId, ids);
+    colocarOrden(a.doc.id, destino.carpetaId, ids);
     if (destino.carpetaId !== SUELTO) setCerradas((prev) => ({ ...prev, [destino.carpetaId]: false }));
+    // Si cambió de carpeta, también se mueve en el servidor (y en Drive).
+    if (carpetaDe(a.doc.folder_id) !== destino.carpetaId) moverEnServidor(a.doc, destino.carpetaId);
+  };
+
+  // Mueve un documento a otra carpeta. Se ve al instante y, si el servidor falla, vuelve a donde estaba.
+  const moverEnServidor = async (doc: Documento, carpetaId: string) => {
+    const nuevo = carpetaId === SUELTO ? null : Number(carpetaId);
+    const cambiarEnLista = (folderId: number | null) =>
+      setDocumentos((prev) => prev.map((d) => (d.id === doc.id ? { ...d, folder_id: folderId } : d)));
+    cambiarEnLista(nuevo);
+    try {
+      await api.patch(`/documents/${doc.id}`, { folder_id: nuevo });
+    } catch (e) {
+      cambiarEnLista(doc.folder_id);
+      mostrarError(e, { que: 'mover el documento', onReintentar: () => moverEnServidor(doc, carpetaId) });
+    }
   };
 
   const alternarCarpeta = (id: string) => setCerradas((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -589,35 +616,53 @@ export default function Docs() {
     setNombreCarpeta('');
   };
 
-  const guardarCarpeta = () => {
-    if (!formCarpeta) return;
+  const guardarCarpeta = async () => {
+    if (!formCarpeta || guardandoCarpeta) return;
     const nombre = nombreCarpeta.trim();
     if (!nombre) {
-      mostrarAviso('Falta el nombre', 'Escribí un nombre para la carpeta (ej. "Vacunas").', { icono: 'create-outline' });
+      mostrarAviso('Falta el nombre', 'Escribí un nombre para la carpeta (ej. \"Vacunas\").', { icono: 'create-outline' });
       return;
     }
     if (existeNombre(nombre, formCarpeta.modo === 'editar' ? formCarpeta.id : undefined)) {
       mostrarAviso('Esa carpeta ya existe', 'Elegí otro nombre para no confundirte.', { icono: 'folder-outline' });
       return;
     }
-    if (formCarpeta.modo === 'nueva') crearCarpeta(nombre);
-    else renombrarCarpeta(formCarpeta.id, nombre);
-    cerrarFormCarpeta();
+    setGuardandoCarpeta(true);
+    try {
+      if (formCarpeta.modo === 'nueva') await crearCarpeta(nombre);
+      else await renombrarCarpeta(formCarpeta.id, nombre);
+      cerrarFormCarpeta();
+    } catch (e) {
+      mostrarError(e, {
+        que: formCarpeta.modo === 'nueva' ? 'crear la carpeta' : 'renombrar la carpeta',
+        onReintentar: guardarCarpeta,
+      });
+    } finally {
+      setGuardandoCarpeta(false);
+    }
   };
 
   const borrarCarpeta = async () => {
-    if (!formCarpeta || formCarpeta.modo !== 'editar') return;
+    if (!formCarpeta || formCarpeta.modo !== 'editar' || guardandoCarpeta) return;
     const carpeta = carpetas.find((c) => c.id === formCarpeta.id);
     if (!carpeta) return;
     const seguro = await confirmar({
       titulo: 'Eliminar carpeta',
-      mensaje: `¿Eliminar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a la carpeta "Documentos".`,
+      mensaje: `¿Eliminar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a "A la vista" (fuera de las carpetas, también en tu Drive).`,
       textoConfirmar: 'Eliminar',
       peligro: true,
     });
     if (!seguro) return;
-    eliminarCarpeta(carpeta.id);
-    cerrarFormCarpeta();
+    setGuardandoCarpeta(true);
+    try {
+      await eliminarCarpeta(carpeta.id);
+      cerrarFormCarpeta();
+      cargarDocumentos(); // los documentos de esa carpeta ahora vienen con folder_id = null
+    } catch (e) {
+      mostrarError(e, { que: 'eliminar la carpeta', onReintentar: borrarCarpeta });
+    } finally {
+      setGuardandoCarpeta(false);
+    }
   };
 
   if (cargandoHijos && hijos.length === 0) {
@@ -708,13 +753,19 @@ export default function Docs() {
         </>
       )}
 
-      {cargando ? (
+      {cargando || (cargandoCarpetas && carpetas.length === 0) ? (
         <View style={styles.centroFlex}>
           <EsperaServidor texto="Cargando documentos…" />
         </View>
-      ) : error ? (
+      ) : error || errorCarpetas ? (
         <View style={styles.zonaError}>
-          <TarjetaError error={error} onReintentar={cargarDocumentos} />
+          <TarjetaError
+            error={(error ?? errorCarpetas)!}
+            onReintentar={() => {
+              if (errorCarpetas) recargarCarpetas();
+              if (error) cargarDocumentos();
+            }}
+          />
         </View>
       ) : documentos.length === 0 ? (
         <EstadoVacio
@@ -958,7 +1009,7 @@ export default function Docs() {
       )}
 
       {formCarpeta && (
-        <FormularioSuperior onCerrar={cerrarFormCarpeta}>
+        <FormularioSuperior onCerrar={guardandoCarpeta ? undefined : cerrarFormCarpeta}>
           <Text style={styles.tituloEdicion}>{formCarpeta.modo === 'nueva' ? 'Nueva carpeta' : 'Editar carpeta'}</Text>
           <TextInput
             placeholderTextColor="#5F5F5F"
@@ -970,18 +1021,25 @@ export default function Docs() {
             autoFocus
           />
           <View style={styles.filaBotones}>
-            <TouchableOpacity style={[styles.botonForm, styles.botonCancelar]} onPress={cerrarFormCarpeta}>
+            <TouchableOpacity
+              style={[styles.botonForm, styles.botonCancelar]}
+              onPress={cerrarFormCarpeta}
+              disabled={guardandoCarpeta}
+            >
               <Text style={styles.botonTexto}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
               onPress={guardarCarpeta}
+              disabled={guardandoCarpeta}
             >
-              <Text style={styles.botonTexto}>{formCarpeta.modo === 'nueva' ? 'Crear' : 'Guardar'}</Text>
+              <Text style={styles.botonTexto}>
+                {guardandoCarpeta ? 'Guardando...' : formCarpeta.modo === 'nueva' ? 'Crear' : 'Guardar'}
+              </Text>
             </TouchableOpacity>
           </View>
           {formCarpeta.modo === 'editar' && !carpetas.find((c) => c.id === formCarpeta.id)?.fija && (
-            <TouchableOpacity style={styles.botonEliminar} onPress={borrarCarpeta}>
+            <TouchableOpacity style={styles.botonEliminar} onPress={borrarCarpeta} disabled={guardandoCarpeta}>
               <Text style={styles.botonEliminarTexto}>Eliminar carpeta</Text>
             </TouchableOpacity>
           )}

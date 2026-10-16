@@ -158,6 +158,13 @@ export function interpretarError(e: any, que = 'completar la acción'): ErrorAmi
       'Reintentar'
     );
   }
+  // Carpetas: nombre repetido (409) y carpetas de base que no se pueden borrar (400).
+  if (estado === 409 && detalle.includes('carpeta')) {
+    return armar('datos_invalidos', 'Esa carpeta ya existe', 'Ya tenés una carpeta con ese nombre. Elegí otro para no confundirte.');
+  }
+  if (estado === 400 && detalle.includes('no se pueden borrar')) {
+    return armar('datos_invalidos', 'Esta carpeta no se puede borrar', 'Documentos, Salud y Escuela se pueden renombrar, pero no borrar.');
+  }
   if (estado === 422) {
     return armar('datos_invalidos', 'Revisá los datos', 'Algo de lo que cargaste no es válido. Corregilo e intentá de nuevo.');
   }

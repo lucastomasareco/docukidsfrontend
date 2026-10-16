@@ -23,7 +23,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'checkmark-circle-outline', texto: 'Si tiene fecha de vencimiento, la app la detecta y te pide confirmarla. Te avisamos por email antes de que venza.' },
       { icono: 'hand-left-outline', texto: 'Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre, moverlo de carpeta o borrarlo.' },
       { icono: 'reorder-three-outline', texto: 'Para ordenar, agarrá el ícono ≡ de un documento y arrastralo: soltalo en otra carpeta, entre otros documentos o arriba, en "A la vista".' },
-      { icono: 'folder-open-outline', texto: 'Los documentos se ordenan en carpetas (Documentos, Salud, Escuela). Tocá el título de una carpeta para cerrarla o abrirla; mantenelo presionado para cambiarle el nombre. Con Nueva carpeta creás las que quieras.' },
+      { icono: 'folder-open-outline', texto: 'Los documentos se ordenan en carpetas (Documentos, Salud, Escuela). Tocá el título de una carpeta para cerrarla o abrirla; mantenelo presionado para cambiarle el nombre. Con Nueva carpeta creás las que quieras. Las carpetas también aparecen en tu Drive.' },
       { icono: 'color-palette-outline', texto: 'Verde: vigente. Naranja: vence en 30 días o menos. Rojo: vencido.' },
     ],
   },
