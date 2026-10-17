@@ -289,7 +289,35 @@ export default function Docs() {
     setNombreDocumento('');
   };
 
+  // --- SOLO PC (Electron): explorador de archivos nativo de Windows ---
+  // El explorador "del navegador" depende de un clic simulado que en algunas PC no abre nada.
+  // Dentro del .exe, main.js ofrece el explorador de Windows (window.docukidsEscritorio).
+  // Devuelve true si se encargó él (aunque la persona cancele); false = usar el método de siempre.
+  const elegirConExploradorNativo = async (tipo: 'pdf' | 'imagen'): Promise<boolean> => {
+    const puente = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).docukidsEscritorio : undefined;
+    if (!puente) return false;
+    try {
+      const r = await puente.elegirArchivo(tipo);
+      if (!r) return true; // canceló
+      if (r.error === 'tamano') {
+        mostrarAviso('Archivo muy pesado', 'Elegí un archivo de menos de 25 MB.', { icono: 'document-outline' });
+        return true;
+      }
+      if (r.error) {
+        mostrarAviso('Ese archivo no se puede subir', 'Elegí un PDF o una foto (JPG o PNG).', { icono: 'document-outline' });
+        return true;
+      }
+      const archivo = new File([r.bytes], r.nombre, { type: r.mimeType });
+      setArchivoElegido({ uri: URL.createObjectURL(archivo), mimeType: r.mimeType, nombreArchivo: r.nombre });
+      setMostrarFormulario(true);
+      return true;
+    } catch {
+      return false; // si el puente falla, se usa el método de siempre
+    }
+  };
+
   const elegirDeGaleria = async () => {
+    if (await elegirConExploradorNativo('imagen')) return;
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a tus fotos para subir documentos.', {
@@ -311,6 +339,7 @@ export default function Docs() {
   };
 
   const tomarFoto = async () => {
+    if (await elegirConExploradorNativo('imagen')) return;
     const permiso = await ImagePicker.requestCameraPermissionsAsync();
     if (!permiso.granted) {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a la cámara para sacar la foto.', {
@@ -332,6 +361,7 @@ export default function Docs() {
   };
 
   const elegirPDF = async () => {
+    if (await elegirConExploradorNativo('pdf')) return;
     const resultado = await DocumentPicker.getDocumentAsync({
       type: 'application/pdf',
       copyToCacheDirectory: true,
