@@ -434,7 +434,7 @@ export default function Calendario() {
       )}
       {!cargando && !error && (
         <Text style={styles.pista}>
-          Tocá un día libre para agendar un turno. Mantené presionado un turno para editarlo o eliminarlo.
+          Tocá un día libre para agendar un turno (en un día con turnos: mantenelo presionado o usá el botón +). Mantené presionado un turno para editarlo o eliminarlo.
         </Text>
       )}
 

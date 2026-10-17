@@ -30,7 +30,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
   calendario: {
     titulo: 'Cómo usar el Calendario',
     consejos: [
-      { icono: 'add-circle-outline', texto: 'Tocá un día sin turnos para agendar uno nuevo. Si no elegís hora, es de todo el día.' },
+      { icono: 'add-circle-outline', texto: 'Tocá un día sin turnos para agendar uno nuevo. Para agendar otro turno en un día que ya tiene, mantené presionado ese día o usá el botón +. Si no elegís hora, es de todo el día.' },
       { icono: 'calendar-outline', texto: 'Tocá un día con turnos para ver solo los de ese día. Tocalo de nuevo para ver todos.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o eliminarlo.' },
       { icono: 'mail-outline', texto: 'Los turnos también se guardan en tu Google Calendar.' },
