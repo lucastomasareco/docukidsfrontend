@@ -12,13 +12,17 @@ export type ConsejoAyuda = {
 
 export type AyudaDeUnaPantalla = {
   titulo: string;
+  // Nombre de la pantalla, para aclarar que la guía es solo de ella.
+  nombre: string;
   consejos: ConsejoAyuda[];
 };
 
 export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
   docs: {
-    titulo: 'Cómo usar Documentos',
+    titulo: 'Ayuda: Documentos',
+    nombre: 'Documentos',
     consejos: [
+      { icono: 'people-outline', texto: 'Arriba dice "Estás viendo a:" y el nombre de tu hijo. Tocalo para cambiar de hijo: se muestran los documentos del que elijas.' },
       { icono: 'cloud-upload-outline', texto: 'Tocá SUBIR DOCUMENTO y elegí una foto o un PDF (DNI, carnet de vacunas…).' },
       { icono: 'checkmark-circle-outline', texto: 'Si tiene fecha de vencimiento, la app la detecta y te pide confirmarla. Te avisamos por email antes de que venza.' },
       { icono: 'hand-left-outline', texto: 'Tocá un documento para abrirlo. Mantené presionado para cambiarle el nombre, moverlo de carpeta o borrarlo.' },
@@ -28,8 +32,10 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
     ],
   },
   calendario: {
-    titulo: 'Cómo usar el Calendario',
+    titulo: 'Ayuda: Calendario',
+    nombre: 'Calendario',
     consejos: [
+      { icono: 'people-outline', texto: 'Arriba dice "Estás viendo a:" y el nombre de tu hijo. Tocalo para cambiar de hijo: se muestran los turnos del que elijas.' },
       { icono: 'add-circle-outline', texto: 'Tocá un día sin turnos para agendar uno nuevo. Para agendar otro turno en un día que ya tiene, mantené presionado ese día o usá el botón +. Si no elegís hora, es de todo el día.' },
       { icono: 'calendar-outline', texto: 'Tocá un día con turnos para ver solo los de ese día. Tocalo de nuevo para ver todos.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o eliminarlo.' },
@@ -38,7 +44,8 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
     ],
   },
   hijos: {
-    titulo: 'Cómo usar Hijos',
+    titulo: 'Ayuda: Hijos',
+    nombre: 'Hijos',
     consejos: [
       { icono: 'people-outline', texto: 'Tocá Registrar hijo para crear su perfil. Podés agregar a todos los que quieras.' },
       { icono: 'search-outline', texto: 'Con la lupa buscás a tu hijo por las primeras letras de su nombre (por ejemplo "Luc"). Tocá la X para ver a todos de nuevo.' },
@@ -47,7 +54,8 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
     ],
   },
   ajustes: {
-    titulo: 'Cómo usar Ajustes',
+    titulo: 'Ayuda: Ajustes',
+    nombre: 'Ajustes',
     consejos: [
       { icono: 'logo-google', texto: 'Conectá tu cuenta de Google: es necesaria para subir documentos, agendar turnos y recibir avisos por email.' },
       { icono: 'color-palette-outline', texto: 'Elegí los colores de la app en Apariencia.' },

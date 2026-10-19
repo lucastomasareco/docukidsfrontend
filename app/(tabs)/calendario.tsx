@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
@@ -20,6 +19,7 @@ import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
+import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
@@ -54,16 +54,6 @@ type Separador = { id: -1; separador: true };
 type Fila = Turno | Separador;
 const SEPARADOR: Separador = { id: -1, separador: true };
 const esSeparador = (fila: Fila): fila is Separador => 'separador' in fila;
-
-// Lo que dibuja la lista: cada fila lleva 1 turno (pantalla angosta) o 2 turnos lado a lado
-// (escritorio, ventana ancha), o es la fila de botones de turnos pasados (ocupa todo el ancho).
-type FilaTurnos = { clave: string; turnos: Turno[] };
-type FilaSeparador = { clave: string; separador: true };
-type FilaLista = FilaTurnos | FilaSeparador;
-const esSeparadorLista = (fila: FilaLista): fila is FilaSeparador => 'separador' in fila;
-
-// En escritorio, desde este ancho de ventana (en píxeles) los turnos van de a dos por fila.
-const ANCHO_DOS_COLUMNAS = 760;
 
 // Orden cronológico: fecha y después hora (sin hora = primero del día).
 function compararTurnos(a: Turno, b: Turno): number {
@@ -108,7 +98,7 @@ export default function Calendario() {
   // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista.
   const scrollY = useRef(new Animated.Value(0)).current;
   const [alturaLista, setAlturaLista] = useState(0);
-  const [alturas, setAlturas] = useState<Record<string, number>>({});
+  const [alturas, setAlturas] = useState<Record<number, number>>({});
 
   // esRefresco = true cuando viene del gesto de deslizar hacia abajo: en ese caso
   // la lista NO se reemplaza por el spinner grande (se ve el circulito de arriba)
@@ -195,35 +185,6 @@ export default function Calendario() {
     }
     return lista;
   }, [turnos, diaSeleccionado, proximos, pasados, mostrarPasados]);
-
-  // Escritorio: con la ventana ancha los turnos se muestran de a DOS por fila
-  // (A | B, C | D). Con la ventana angosta, de a uno, como en el teléfono.
-  const { width: anchoVentana } = useWindowDimensions();
-  const columnas = anchoVentana >= ANCHO_DOS_COLUMNAS ? 2 : 1;
-
-  // Agrupa los turnos de a `columnas` por fila. La fila de botones de pasados corta el
-  // grupo (los pasados empiezan en una fila nueva) y ocupa todo el ancho.
-  const filasLista: FilaLista[] = useMemo(() => {
-    const lista: FilaLista[] = [];
-    let grupo: Turno[] = [];
-    const cerrarGrupo = () => {
-      for (let i = 0; i < grupo.length; i += columnas) {
-        const par = grupo.slice(i, i + columnas);
-        lista.push({ clave: `t${par[0].id}`, turnos: par });
-      }
-      grupo = [];
-    };
-    filas.forEach((fila) => {
-      if (esSeparador(fila)) {
-        cerrarGrupo();
-        lista.push({ clave: 'separador', separador: true });
-      } else {
-        grupo.push(fila);
-      }
-    });
-    cerrarGrupo();
-    return lista;
-  }, [filas, columnas]);
 
   // Formulario de turno NUEVO. Sin fecha: usa el día filtrado o, si no hay, hoy.
   const abrirFormulario = (fecha?: string) => {
@@ -432,56 +393,20 @@ export default function Calendario() {
       >
         <EstadoVacio
           icono="people-outline"
-          titulo="Todavía no agregaste a tu hijo"
-          mensaje="Registrá a tu hijo para agendar sus turnos médicos y verlos en tu calendario."
-          etiquetaAccion="Agregar hijo"
+          titulo="Todavía no cargaste ningún hijo"
+          mensaje="Para agendar turnos primero hay que cargar a tu hijo. Tocá el botón de abajo para agregar el primero."
+          etiquetaAccion="Agregar mi primer hijo"
           onAccion={() => router.navigate('/hijos')}
         />
       </LinearGradient>
     );
   }
 
-  const renderTarjeta = (item: Turno) => (
-    <TouchableOpacity
-      key={item.id}
-      style={styles.card}
-      onLongPress={() => abrirEdicion(item)}
-      activeOpacity={0.7}
-      accessibilityLabel={`Turno ${item.title}`}
-      accessibilityHint="Mantené presionado para editar o eliminar"
-    >
-      <View
-        style={[
-          styles.fechaBox,
-          {
-            backgroundColor: esTurnoPasado(item.date, item.time)
-              ? colorConOpacidad(tema.primary, 0.5)
-              : tema.primary,
-          },
-        ]}
-      >
-        <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
-        <Text style={styles.fechaBoxMes}>{item.date.slice(5, 7)}/{item.date.slice(0, 4)}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.nombre}>{item.title}</Text>
-        <Text style={styles.estado}>
-          {item.time ? horaCorta(item.time) : 'Todo el día'}
-          {item.notes ? ` · ${item.notes}` : ''}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      {/* En escritorio el contenido no se estira de borde a borde: queda centrado con un ancho máximo. */}
-      <View style={styles.contenido}>
-      <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
+      <SelectorHijo />
 
       {/* El calendario queda FIJO: solo se desliza la lista de turnos de abajo. */}
-      {/* Calendario más angosto y centrado: en una pantalla ancha sobraba espacio blanco a los costados. */}
-      <View style={styles.calendarioAncho}>
       <Calendar
         current={fechaDeHoy()}
         markedDates={diasMarcados}
@@ -502,7 +427,6 @@ export default function Calendario() {
           textDayHeaderFontSize: 15,
         }}
       />
-      </View>
 
       {diaSeleccionado && (
         <TouchableOpacity onPress={() => setDiaSeleccionado(null)} style={styles.verTodos}>
@@ -515,10 +439,10 @@ export default function Calendario() {
         </Text>
       )}
 
-      <View style={[{ flex: 1 }, styles.listaAncha]} onLayout={(e) => setAlturaLista(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1 }} onLayout={(e) => setAlturaLista(e.nativeEvent.layout.height)}>
         <Animated.FlatList
-          data={cargando || error ? [] : filasLista}
-          keyExtractor={(item: FilaLista) => item.clave}
+          data={cargando || error ? [] : filas}
+          keyExtractor={(item: Fila) => String(item.id)}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -575,12 +499,13 @@ export default function Calendario() {
               )
             )
           }
-          renderItem={({ item, index }: { item: FilaLista; index: number }) => {
-            // Posición de la fila dentro de la lista (suma de las alturas de las anteriores).
+          renderItem={({ item, index }: { item: Fila; index: number }) => {
+
+            // Posición de la tarjeta dentro de la lista (suma de las alturas de las anteriores).
             const viewport = alturaLista || 400;
-            const h = Math.min(alturas[item.clave] ?? ALTURA_ESTIMADA, viewport);
+            const h = Math.min(alturas[item.id] ?? ALTURA_ESTIMADA, viewport);
             let y = 0;
-            for (let j = 0; j < index; j++) y += alturas[filasLista[j].clave] ?? ALTURA_ESTIMADA;
+            for (let j = 0; j < index; j++) y += alturas[filas[j].id] ?? ALTURA_ESTIMADA;
             const zona = h * 0.8; // tramo en el que se va volviendo transparente
             // scrollY -> [invisible abajo, visible, visible, invisible arriba]
             const entrada = [y + h - viewport - zona, y + h - viewport, y, y + zona];
@@ -600,10 +525,10 @@ export default function Calendario() {
                 style={{ opacity, transform: [{ scale }] }}
                 onLayout={(e) => {
                   const alto = Math.round(e.nativeEvent.layout.height);
-                  setAlturas((prev) => (prev[item.clave] === alto ? prev : { ...prev, [item.clave]: alto }));
+                  setAlturas((prev) => (prev[item.id] === alto ? prev : { ...prev, [item.id]: alto }));
                 }}
               >
-                {esSeparadorLista(item) ? (
+                {esSeparador(item) ? (
                   <View style={styles.zonaPasados}>
                     {/* Mismo tamaño y forma que los títulos de carpeta de Docs. */}
                     <TouchableOpacity
@@ -643,19 +568,39 @@ export default function Calendario() {
                     )}
                   </View>
                 ) : (
-                  <View style={styles.filaTurnos}>
-                    {item.turnos.map(renderTarjeta)}
-                    {/* Fila con un solo turno: un hueco para que la tarjeta quede de media fila, no estirada. */}
-                    {Array.from({ length: columnas - item.turnos.length }).map((_, i) => (
-                      <View key={`hueco-${i}`} style={styles.huecoTarjeta} />
-                    ))}
+                <TouchableOpacity
+                  style={styles.card}
+                  onLongPress={() => abrirEdicion(item)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Turno ${item.title}`}
+                  accessibilityHint="Mantené presionado para editar o eliminar"
+                >
+                  <View
+                    style={[
+                      styles.fechaBox,
+                      {
+                        backgroundColor: esTurnoPasado(item.date, item.time)
+                          ? colorConOpacidad(tema.primary, 0.5)
+                          : tema.primary,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.fechaBoxTexto}>{item.date.slice(8, 10)}</Text>
+                    <Text style={styles.fechaBoxMes}>{item.date.slice(5, 7)}/{item.date.slice(0, 4)}</Text>
                   </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nombre}>{item.title}</Text>
+                    <Text style={styles.estado}>
+                      {item.time ? horaCorta(item.time) : 'Todo el día'}
+                      {item.notes ? ` · ${item.notes}` : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
                 )}
               </Animated.View>
             );
           }}
         />
-      </View>
       </View>
 
       {mostrarFormulario && (
@@ -741,15 +686,7 @@ const styles = StyleSheet.create({
   vacio: { fontSize: 16, color: '#3F3F3F', marginTop: 20, textAlign: 'center' },
   verTodos: { paddingVertical: 10 },
   verTodosTexto: { color: '#0D47A1', fontSize: 15, textAlign: 'center' },
-  contenido: { flex: 1, width: '100%', maxWidth: 1200, alignSelf: 'center' },
-  // Calendario: casi todo el ancho (antes de la v2.2 ocupaba el 100 %; ahora unos 1200 px).
-  calendarioAncho: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
-  // La lista de turnos conserva su ancho de siempre (1000), centrada.
-  listaAncha: { width: '100%', maxWidth: 1000, alignSelf: 'center' },
-  filaTurnos: { flexDirection: 'row', gap: 12 },
-  huecoTarjeta: { flex: 1 },
   card: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',

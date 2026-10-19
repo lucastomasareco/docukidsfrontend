@@ -9,7 +9,6 @@ import {
   Image,
   Modal,
   Linking,
-  Platform,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,6 +24,7 @@ import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
+import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
@@ -289,35 +289,7 @@ export default function Docs() {
     setNombreDocumento('');
   };
 
-  // --- SOLO PC (Electron): explorador de archivos nativo de Windows ---
-  // El explorador "del navegador" depende de un clic simulado que en algunas PC no abre nada.
-  // Dentro del .exe, main.js ofrece el explorador de Windows (window.docukidsEscritorio).
-  // Devuelve true si se encargó él (aunque la persona cancele); false = usar el método de siempre.
-  const elegirConExploradorNativo = async (tipo: 'pdf' | 'imagen'): Promise<boolean> => {
-    const puente = Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).docukidsEscritorio : undefined;
-    if (!puente) return false;
-    try {
-      const r = await puente.elegirArchivo(tipo);
-      if (!r) return true; // canceló
-      if (r.error === 'tamano') {
-        mostrarAviso('Archivo muy pesado', 'Elegí un archivo de menos de 25 MB.', { icono: 'document-outline' });
-        return true;
-      }
-      if (r.error) {
-        mostrarAviso('Ese archivo no se puede subir', 'Elegí un PDF o una foto (JPG o PNG).', { icono: 'document-outline' });
-        return true;
-      }
-      const archivo = new File([r.bytes], r.nombre, { type: r.mimeType });
-      setArchivoElegido({ uri: URL.createObjectURL(archivo), mimeType: r.mimeType, nombreArchivo: r.nombre });
-      setMostrarFormulario(true);
-      return true;
-    } catch {
-      return false; // si el puente falla, se usa el método de siempre
-    }
-  };
-
   const elegirDeGaleria = async () => {
-    if (await elegirConExploradorNativo('imagen')) return;
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a tus fotos para subir documentos.', {
@@ -339,7 +311,6 @@ export default function Docs() {
   };
 
   const tomarFoto = async () => {
-    if (await elegirConExploradorNativo('imagen')) return;
     const permiso = await ImagePicker.requestCameraPermissionsAsync();
     if (!permiso.granted) {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a la cámara para sacar la foto.', {
@@ -361,7 +332,6 @@ export default function Docs() {
   };
 
   const elegirPDF = async () => {
-    if (await elegirConExploradorNativo('pdf')) return;
     const resultado = await DocumentPicker.getDocumentAsync({
       type: 'application/pdf',
       copyToCacheDirectory: true,
@@ -375,99 +345,6 @@ export default function Docs() {
     });
     setMostrarFormulario(true);
   };
-
-  // --- SOLO PC: arrastrar un archivo a la ventana (respaldo si el explorador de Windows no se abre) ---
-  const [arrastrandoArchivo, setArrastrandoArchivo] = useState(false);
-
-  // Con una ventana de formulario ya abierta (editar, carpeta) no se acepta un archivo nuevo.
-  const bloqueadoParaSoltar = !!editando || !!formCarpeta || !!porConfirmar;
-
-  const recibirArchivoSoltado = useCallback(
-    (lista: FileList | null | undefined) => {
-      const archivos = lista ? Array.from(lista) : [];
-      if (archivos.length === 0) return;
-      if (bloqueadoParaSoltar) {
-        mostrarAviso('Terminá lo que estás haciendo', 'Cerrá la ventana que tenés abierta y volvé a soltar el archivo.', {
-          icono: 'alert-circle-outline',
-        });
-        return;
-      }
-      if (archivos.length > 1) {
-        mostrarAviso('Un documento por vez', 'Soltá un solo archivo. Después podés subir el siguiente.', {
-          icono: 'documents-outline',
-        });
-        return;
-      }
-      const archivo = archivos[0];
-      // Algunos archivos de Windows llegan sin tipo: lo deducimos por la extensión.
-      const ext = (archivo.name.split('.').pop() || '').toLowerCase();
-      const porExtension: Record<string, string> = {
-        pdf: 'application/pdf',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        webp: 'image/webp',
-      };
-      const tipo = archivo.type || porExtension[ext] || '';
-      if (tipo !== 'application/pdf' && !tipo.startsWith('image/')) {
-        mostrarAviso('Ese archivo no se puede subir', 'Elegí un PDF o una foto (JPG o PNG).', {
-          icono: 'document-outline',
-        });
-        return;
-      }
-      setMostrarMenu(false);
-      setArchivoElegido({
-        uri: URL.createObjectURL(archivo),
-        mimeType: tipo,
-        nombreArchivo: archivo.name,
-      });
-      setMostrarFormulario(true);
-    },
-    [bloqueadoParaSoltar, mostrarAviso]
-  );
-
-  // Solo mientras esta pestaña está a la vista (si no, soltar un archivo en otra pestaña abriría el formulario acá).
-  useFocusEffect(
-    useCallback(() => {
-      if (Platform.OS !== 'web' || typeof window === 'undefined' || !seleccionadoId) return;
-      const traeArchivos = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
-      let adentro = 0; // dragenter/dragleave se disparan también por los elementos hijos: se cuentan.
-      const alEntrar = (e: DragEvent) => {
-        if (!traeArchivos(e)) return;
-        e.preventDefault();
-        adentro += 1;
-        setArrastrandoArchivo(true);
-      };
-      const alPasar = (e: DragEvent) => {
-        if (!traeArchivos(e)) return;
-        e.preventDefault(); // sin esto el navegador no deja soltar (y Electron abriría el archivo)
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-      };
-      const alSalir = (e: DragEvent) => {
-        if (!traeArchivos(e)) return;
-        adentro = Math.max(0, adentro - 1);
-        if (adentro === 0) setArrastrandoArchivo(false);
-      };
-      const alSoltar = (e: DragEvent) => {
-        if (!traeArchivos(e)) return;
-        e.preventDefault();
-        adentro = 0;
-        setArrastrandoArchivo(false);
-        recibirArchivoSoltado(e.dataTransfer?.files);
-      };
-      window.addEventListener('dragenter', alEntrar);
-      window.addEventListener('dragover', alPasar);
-      window.addEventListener('dragleave', alSalir);
-      window.addEventListener('drop', alSoltar);
-      return () => {
-        window.removeEventListener('dragenter', alEntrar);
-        window.removeEventListener('dragover', alPasar);
-        window.removeEventListener('dragleave', alSalir);
-        window.removeEventListener('drop', alSoltar);
-        setArrastrandoArchivo(false);
-      };
-    }, [seleccionadoId, recibirArchivoSoltado])
-  );
 
   const abrirOpciones = () => {
     setCarpetaDestino(carpetaPorDefecto);
@@ -485,33 +362,21 @@ export default function Docs() {
       mostrarAviso('Falta el nombre', 'Escribí un nombre para el documento (ej. "DNI").', { icono: 'create-outline' });
       return;
     }
+    const formData = new FormData();
+    formData.append('file', {
+      uri: archivoElegido.uri,
+      name: archivoElegido.nombreArchivo,
+      type: archivoElegido.mimeType,
+    } as any);
+    formData.append('child_id', String(seleccionadoId));
+    formData.append('name', nombreDocumento.trim());
+    // Sin folder_id el backend lo deja suelto, en la raíz "Docukids".
+    if (carpetaDestino !== SUELTO) formData.append('folder_id', carpetaDestino);
+
     setSubiendo(true);
     try {
-      const formData = new FormData();
-      if (Platform.OS === 'web') {
-        // En el navegador el truco { uri, name, type } no sirve (mandaría el texto
-        // "[object Object]" en vez del archivo y el backend responde 422).
-        // Hay que bajar el archivo elegido y mandarlo como un File de verdad.
-        const bajada = await fetch(archivoElegido.uri);
-        const blob = await bajada.blob();
-        const archivo = new File([blob], archivoElegido.nombreArchivo, { type: archivoElegido.mimeType });
-        formData.append('file', archivo);
-      } else {
-        formData.append('file', {
-          uri: archivoElegido.uri,
-          name: archivoElegido.nombreArchivo,
-          type: archivoElegido.mimeType,
-        } as any);
-      }
-      formData.append('child_id', String(seleccionadoId));
-      formData.append('name', nombreDocumento.trim());
-      // Sin folder_id el backend lo deja suelto, en la raíz "Docukids".
-      if (carpetaDestino !== SUELTO) formData.append('folder_id', carpetaDestino);
-
-      // En web NO se fija el Content-Type a mano: el navegador lo arma solo
-      // (con el "boundary" que necesita el multipart).
       const respuesta = await api.post('/upload', formData, {
-        headers: Platform.OS === 'web' ? undefined : { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 120000,
       });
       const nombreSubido = nombreDocumento.trim();
@@ -821,9 +686,9 @@ export default function Docs() {
       >
         <EstadoVacio
           icono="people-outline"
-          titulo="Todavía no agregaste a tu hijo"
-          mensaje="Registrá a tu hijo para guardar sus documentos en un solo lugar y recibir avisos antes de que venzan."
-          etiquetaAccion="Agregar hijo"
+          titulo="Todavía no cargaste ningún hijo"
+          mensaje="Para guardar documentos primero hay que cargar a tu hijo. Tocá el botón de abajo para agregar el primero."
+          etiquetaAccion="Agregar mi primer hijo"
           onAccion={() => router.navigate('/hijos')}
         />
       </LinearGradient>
@@ -835,12 +700,7 @@ export default function Docs() {
   // --- CAMBIO PRINCIPAL: Apertura con LinearGradient ---
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-            {Platform.OS === 'web' && arrastrandoArchivo && (
-        <View pointerEvents="none" style={[styles.capaSoltar, { borderColor: tema.primary }]}>
-          <Text style={styles.capaSoltarTexto}>📄 Soltá el archivo acá para subirlo</Text>
-        </View>
-      )}
-      <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
+      <SelectorHijo />
 
       {!mostrarFormulario && googleConectado === false && (
         <View style={styles.bloqueGoogle}>
@@ -878,11 +738,6 @@ export default function Docs() {
             <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
             <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
           </TouchableOpacity>
-          {Platform.OS === 'web' && (
-            <Text style={styles.ayudaArrastrar}>
-              ¿No se abre el explorador de archivos? Arrastrá un PDF o una foto desde tu carpeta y soltalo en esta ventana.
-            </Text>
-          )}
         </>
       )}
 
@@ -1262,22 +1117,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   botonNuevaCarpetaTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
-  ayudaArrastrar: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 8, marginBottom: 4 },
-  capaSoltar: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    right: 8,
-    bottom: 8,
-    zIndex: 50,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  capaSoltarTexto: { fontSize: 20, fontWeight: '700', color: '#1F1F1F', textAlign: 'center', paddingHorizontal: 24 },
   etiquetaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#3F3F3F', marginTop: 4, marginBottom: 6, textTransform: 'uppercase' },
   carpetaVacia: { fontSize: 14, color: '#3F3F3F', fontStyle: 'italic', marginLeft: 14, marginBottom: 10 },
   cardEnCarpeta: { marginLeft: 14 },
