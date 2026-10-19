@@ -19,6 +19,7 @@ import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
+import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
@@ -392,9 +393,9 @@ export default function Calendario() {
       >
         <EstadoVacio
           icono="people-outline"
-          titulo="Todavía no agregaste a tu hijo"
-          mensaje="Registrá a tu hijo para agendar sus turnos médicos y verlos en tu calendario."
-          etiquetaAccion="Agregar hijo"
+          titulo="Todavía no cargaste ningún hijo"
+          mensaje="Para agendar turnos primero hay que cargar a tu hijo. Tocá el botón de abajo para agregar el primero."
+          etiquetaAccion="Agregar mi primer hijo"
           onAccion={() => router.navigate('/hijos')}
         />
       </LinearGradient>
@@ -403,7 +404,7 @@ export default function Calendario() {
 
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
+      <SelectorHijo />
 
       {/* El calendario queda FIJO: solo se desliza la lista de turnos de abajo. */}
       <Calendar

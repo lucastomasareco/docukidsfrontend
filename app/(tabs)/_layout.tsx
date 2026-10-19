@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useChildren } from '../../context/ChildrenContext';
 import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
@@ -25,6 +26,9 @@ function crearIcono(pantalla: keyof typeof ICONOS) {
 
 export default function TabsLayout() {
   const { tema } = useTheme();
+  const { hijos, seleccionadoId } = useChildren();
+  // Con un hijo elegido, el título de la barra lleva su nombre. Si no hay, el título de siempre.
+  const nombreHijo = hijos.find((h) => h.id === seleccionadoId)?.name;
 
   return (
     <AyudaProvider>
@@ -35,7 +39,7 @@ export default function TabsLayout() {
         headerRight: () => <BotonAyuda />,
         // Barra de arriba: blanca (la de siempre); solo cambia el estilo del título.
         headerTitleAlign: 'left',
-        headerTitleStyle: { fontSize: 24, fontWeight: 'bold', color: tema.textPrimary },
+        headerTitleStyle: { fontSize: 21, fontWeight: 'bold', color: tema.textPrimary },
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
         tabBarLabelStyle: { fontSize: 15, fontWeight: '600' },
@@ -44,11 +48,11 @@ export default function TabsLayout() {
       {/* "title" es el nombre corto de la barra de abajo; "headerTitle" es el de arriba. */}
       <Tabs.Screen
         name="index"
-        options={{ title: 'Docs', headerTitle: 'Mis documentos', tabBarIcon: crearIcono('index') }}
+        options={{ title: 'Docs', headerTitle: nombreHijo ? `Documentos de ${nombreHijo}` : 'Mis documentos', tabBarIcon: crearIcono('index') }}
       />
       <Tabs.Screen
         name="calendario"
-        options={{ title: 'Calendario', headerTitle: 'Calendario', tabBarIcon: crearIcono('calendario') }}
+        options={{ title: 'Calendario', headerTitle: nombreHijo ? `Turnos de ${nombreHijo}` : 'Calendario', tabBarIcon: crearIcono('calendario') }}
       />
       <Tabs.Screen
         name="hijos"

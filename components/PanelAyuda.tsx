@@ -36,6 +36,13 @@ export default function PanelAyuda() {
               <Text style={styles.titulo}>{ayuda.titulo}</Text>
             </View>
 
+            <View style={[styles.aviso, { borderColor: tema.primary }]}>
+              <Ionicons name="information-circle-outline" size={20} color={TEXTO} style={styles.icono} />
+              <Text style={styles.avisoTexto}>
+                Esta guía es solo de la pantalla {ayuda.nombre}. Cada pantalla tiene la suya: buscá el botón "¿Cómo se usa?" arriba a la derecha.
+              </Text>
+            </View>
+
             {ayuda.consejos.map((c, i) => (
               <View key={i} style={styles.fila}>
                 <Ionicons name={c.icono} size={22} color={TEXTO} style={styles.icono} />
@@ -43,7 +50,7 @@ export default function PanelAyuda() {
               </View>
             ))}
 
-            <Text style={styles.pie}>Podés volver a verla cuando quieras con el ? de arriba.</Text>
+            <Text style={styles.pie}>Podés volver a verla cuando quieras con el botón "¿Cómo se usa?" de arriba.</Text>
           </ScrollView>
 
           <TouchableOpacity
@@ -68,6 +75,8 @@ const styles = StyleSheet.create({
   cabecera: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   circulo: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   titulo: { flex: 1, fontSize: 20, fontWeight: 'bold', color: TEXTO },
+  aviso: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderRadius: 12, padding: 10, marginTop: 8 },
+  avisoTexto: { flex: 1, fontSize: 15, lineHeight: 21, fontWeight: '600', color: TEXTO },
   fila: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 12 },
   icono: { marginRight: 10, marginTop: 1 },
   texto: { flex: 1, fontSize: 16, lineHeight: 22, color: TEXTO_SUAVE },

@@ -24,6 +24,7 @@ import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
+import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
@@ -685,9 +686,9 @@ export default function Docs() {
       >
         <EstadoVacio
           icono="people-outline"
-          titulo="Todavía no agregaste a tu hijo"
-          mensaje="Registrá a tu hijo para guardar sus documentos en un solo lugar y recibir avisos antes de que venzan."
-          etiquetaAccion="Agregar hijo"
+          titulo="Todavía no cargaste ningún hijo"
+          mensaje="Para guardar documentos primero hay que cargar a tu hijo. Tocá el botón de abajo para agregar el primero."
+          etiquetaAccion="Agregar mi primer hijo"
           onAccion={() => router.navigate('/hijos')}
         />
       </LinearGradient>
@@ -699,7 +700,7 @@ export default function Docs() {
   // --- CAMBIO PRINCIPAL: Apertura con LinearGradient ---
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      <Text style={styles.subtitulo}>{hijoSeleccionado?.name}</Text>
+      <SelectorHijo />
 
       {!mostrarFormulario && googleConectado === false && (
         <View style={styles.bloqueGoogle}>
