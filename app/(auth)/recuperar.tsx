@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,8 @@ export default function Recuperar() {
   const [repetir, setRepetir] = useState('');
   const [cargando, setCargando] = useState(false);
   const [espera, setEspera] = useState(0);
+  const nuevaRef = useRef<TextInput>(null);
+  const repetirRef = useRef<TextInput>(null);
 
   // Cuenta regresiva para poder pedir otro código.
   useEffect(() => {
@@ -93,6 +95,8 @@ export default function Recuperar() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              returnKeyType="send"
+              onSubmitEditing={() => { if (!cargando) enviarCodigo(); }}
             />
             <TouchableOpacity style={styles.boton} onPress={enviarCodigo} disabled={cargando}>
               <Text style={styles.botonTexto}>{cargando ? 'Enviando...' : 'Enviarme el código'}</Text>
@@ -109,22 +113,30 @@ export default function Recuperar() {
               onChangeText={(t) => setCodigo(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
               maxLength={10}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => nuevaRef.current?.focus()}
             />
             <CampoContrasena
+              ref={nuevaRef}
               placeholderTextColor="#5F5F5F"
               style={styles.input}
               placeholder="Contraseña nueva (mín. 6 caracteres)"
               value={nueva}
               onChangeText={setNueva}
-              
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => repetirRef.current?.focus()}
             />
             <CampoContrasena
+              ref={repetirRef}
               placeholderTextColor="#5F5F5F"
               style={styles.input}
               placeholder="Repetí la contraseña nueva"
               value={repetir}
               onChangeText={setRepetir}
-              
+              returnKeyType="go"
+              onSubmitEditing={() => { if (!cargando) cambiar(); }}
             />
             <TouchableOpacity style={styles.boton} onPress={cambiar} disabled={cargando}>
               <Text style={styles.botonTexto}>{cargando ? 'Cambiando...' : 'Cambiar contraseña'}</Text>

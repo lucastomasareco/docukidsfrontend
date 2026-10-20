@@ -4,6 +4,7 @@ import { Calendar } from 'react-native-calendars';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../context/ThemeContext';
 import { fechaCorta } from '../lib/fechas';
+import { horaEnPalabras } from '../lib/horas';
 
 // Selector de fecha + hora para el formulario de turnos.
 //  - Fecha: calendario (react-native-calendars, ya instalado). Se muestra dd/mm/aaaa.
@@ -67,7 +68,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
           onPress={abrirHora}
           accessibilityLabel="Elegir la hora del turno"
         >
-          <Text style={[styles.campoTexto, !hora && styles.campoVacio]}>{hora || 'Sin hora (todo el día)'}</Text>
+          <Text style={[styles.campoTexto, !hora && styles.campoVacio]}>{hora ? horaEnPalabras(hora) : 'Sin hora (todo el día)'}</Text>
         </TouchableOpacity>
         {!!hora && (
           <TouchableOpacity

@@ -635,9 +635,9 @@ export default function Docs() {
     const carpeta = carpetas.find((c) => c.id === formCarpeta.id);
     if (!carpeta) return;
     const seguro = await confirmar({
-      titulo: 'Eliminar carpeta',
-      mensaje: `¿Eliminar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a "A la vista" (fuera de las carpetas, también en tu Drive).`,
-      textoConfirmar: 'Eliminar',
+      titulo: 'Borrar carpeta',
+      mensaje: `¿Borrar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a "A la vista" (fuera de las carpetas, también en tu Drive).`,
+      textoConfirmar: 'Borrar',
       peligro: true,
     });
     if (!seguro) return;
@@ -647,7 +647,7 @@ export default function Docs() {
       cerrarFormCarpeta();
       cargarDocumentos(); // los documentos de esa carpeta ahora vienen con folder_id = null
     } catch (e) {
-      mostrarError(e, { que: 'eliminar la carpeta', onReintentar: borrarCarpeta });
+      mostrarError(e, { que: 'borrar la carpeta', onReintentar: borrarCarpeta });
     } finally {
       setGuardandoCarpeta(false);
     }
@@ -924,6 +924,8 @@ export default function Docs() {
             value={nombreDocumento}
             onChangeText={setNombreDocumento}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!subiendo) subirDocumento(); }}
           />
           <SelectorCarpeta
             etiqueta="¿Dónde lo guardo?"
@@ -963,6 +965,8 @@ export default function Docs() {
             value={nombreEditado}
             onChangeText={setNombreEditado}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardandoEdicion) guardarEdicion(); }}
           />
           <SelectorCarpeta
             etiqueta="Carpeta"
@@ -991,7 +995,7 @@ export default function Docs() {
             onPress={() => borrarDocumento(editando)}
             disabled={guardandoEdicion}
           >
-            <Text style={styles.botonEliminarTexto}>Eliminar documento</Text>
+            <Text style={styles.botonEliminarTexto}>Borrar este documento</Text>
           </TouchableOpacity>
         </FormularioSuperior>
       )}
@@ -1007,6 +1011,8 @@ export default function Docs() {
             onChangeText={setNombreCarpeta}
             maxLength={30}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardandoCarpeta) guardarCarpeta(); }}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -1028,7 +1034,7 @@ export default function Docs() {
           </View>
           {formCarpeta.modo === 'editar' && !carpetas.find((c) => c.id === formCarpeta.id)?.fija && (
             <TouchableOpacity style={styles.botonEliminar} onPress={borrarCarpeta} disabled={guardandoCarpeta}>
-              <Text style={styles.botonEliminarTexto}>Eliminar carpeta</Text>
+              <Text style={styles.botonEliminarTexto}>Borrar carpeta</Text>
             </TouchableOpacity>
           )}
         </FormularioSuperior>

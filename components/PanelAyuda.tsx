@@ -39,7 +39,7 @@ export default function PanelAyuda() {
             <View style={[styles.aviso, { borderColor: tema.primary }]}>
               <Ionicons name="information-circle-outline" size={20} color={TEXTO} style={styles.icono} />
               <Text style={styles.avisoTexto}>
-                Esta guía es solo de la pantalla {ayuda.nombre}. Cada pantalla tiene la suya: buscá el botón "¿Cómo se usa?" arriba a la derecha.
+                Esta guía es solo de la pantalla {ayuda.nombre}. Cada pantalla tiene la suya: buscá el botón "¿Cómo se usa esta pantalla?" arriba a la derecha.
               </Text>
             </View>
 
@@ -50,7 +50,7 @@ export default function PanelAyuda() {
               </View>
             ))}
 
-            <Text style={styles.pie}>Podés volver a verla cuando quieras con el botón "¿Cómo se usa?" de arriba.</Text>
+            <Text style={styles.pie}>Para cerrarla tocá "Cerrar" o cualquier parte de afuera. Podés volver a verla cuando quieras con el botón "¿Cómo se usa esta pantalla?" de arriba.</Text>
           </ScrollView>
 
           <TouchableOpacity
@@ -70,7 +70,7 @@ export default function PanelAyuda() {
 
 const styles = StyleSheet.create({
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  fondo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  fondo: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.4)' },
   tarjeta: { width: '100%', maxWidth: 560, borderRadius: 20, borderWidth: 2, paddingHorizontal: 20, paddingVertical: 18 },
   cabecera: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   circulo: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 },

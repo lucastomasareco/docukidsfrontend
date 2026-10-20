@@ -2,16 +2,19 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
-import { AYUDAS, PANTALLA_POR_RUTA, type PantallaAyuda } from '../lib/ayudas';
+import { PANTALLA_POR_RUTA, type PantallaAyuda } from '../lib/ayudas';
+
+// Pantallas cuya guía se abre sola la primera vez.
+const ABRE_SOLA: PantallaAyuda[] = ['docs', 'calendario', 'hijos'];
 
 // Guía por pantalla:
-// - La PRIMERA vez que la persona entra a cada pestaña, la guía se abre sola.
-// - Después solo se abre con el botón "?" de arriba, y el mismo botón la cierra.
-// - Si la persona la CIERRA a mano (con el "?" o con "cerrar"), entendemos que ya
-//   sabe usar la app: se marcan como vistas TODAS las pantallas y ya no se abre
-//   sola en ninguna. El "?" sigue funcionando siempre.
+// - La PRIMERA vez que la persona entra a Docs, Calendario e Hijos, la guía de esa
+//   pantalla se abre sola (una vez por pantalla). Ajustes nunca se abre sola.
+// - Cerrarla (con "Cerrar", tocando afuera o con el botón de arriba) solo afecta a
+//   ESA pantalla: las otras guías se abren igual la primera vez que se entra.
+// - Después solo se abre con el botón "¿Cómo se usa esta pantalla?" de arriba.
 // - Al cambiar de pestaña la guía se cierra.
-// "Ya vista" se guarda en el teléfono, por usuario y por pantalla.
+// "Ya vista" se guarda en el dispositivo, por usuario y por pantalla.
 
 type AyudaContextType = {
   // Pantalla actual (null si la ruta no es una pestaña conocida).
@@ -40,13 +43,11 @@ export function AyudaProvider({ children }: { children: ReactNode }) {
   pantallaRef.current = pantalla;
   const abiertaRef = useRef(false);
   abiertaRef.current = abierta;
-  const usuarioRef = useRef<string | null>(usuarioId);
-  usuarioRef.current = usuarioId;
 
   useEffect(() => {
     // Al llegar a una pestaña la guía empieza cerrada.
     setAbierta(false);
-    if (!pantalla || !usuarioId) return;
+    if (!pantalla || !usuarioId || !ABRE_SOLA.includes(pantalla)) return;
 
     let cancelado = false;
     (async () => {
@@ -67,18 +68,8 @@ export function AyudaProvider({ children }: { children: ReactNode }) {
 
   const alternar = useCallback(() => {
     if (!pantallaRef.current) return;
-    if (abiertaRef.current) {
-      // Cerrada a mano: ya no se abre sola en ninguna pantalla.
-      setAbierta(false);
-      const uid = usuarioRef.current;
-      if (uid) {
-        (Object.keys(AYUDAS) as PantallaAyuda[]).forEach((p) => {
-          AsyncStorage.setItem(clave(uid, p), '1').catch(() => {});
-        });
-      }
-    } else {
-      setAbierta(true);
-    }
+    // Cerrar no toca las demás pantallas: la guía de cada una se abre sola su primera vez.
+    setAbierta(!abiertaRef.current);
   }, []);
 
   const value = useMemo(() => ({ pantalla, abierta, alternar }), [pantalla, abierta, alternar]);
