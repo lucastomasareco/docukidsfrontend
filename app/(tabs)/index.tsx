@@ -763,7 +763,9 @@ export default function Docs() {
         />
       ) : (
         <>
-          <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para renombrarlo o borrarlo. Para moverlo, arrastrá el ícono ≡.</Text>
+          <Text style={styles.ayuda}>
+            <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar. Para mover, arrastrá el ícono ≡.
+          </Text>
           <View style={styles.listaDocumentos} onLayout={(e) => {
               alturaListaRef.current = e.nativeEvent.layout.height;
               setAlturaLista(e.nativeEvent.layout.height);
@@ -1199,6 +1201,7 @@ const styles = StyleSheet.create({
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
   tituloEdicion: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
+  ayudaNegrita: { fontWeight: 'bold', color: '#1F1F1F' },
   botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
   textoSubiendo: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
