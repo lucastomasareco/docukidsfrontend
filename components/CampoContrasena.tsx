@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, TextInputProps, StyleProp, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -6,11 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 // Recibe el mismo estilo (`style`) que tendría un TextInput normal.
 type Props = Omit<TextInputProps, 'secureTextEntry' | 'style'> & { style?: StyleProp<TextStyle> };
 
-export default function CampoContrasena({ style, ...resto }: Props) {
+// forwardRef: así las pantallas pueden pasar el foco a este campo con Enter.
+const CampoContrasena = forwardRef<TextInput, Props>(function CampoContrasena({ style, ...resto }, ref) {
   const [visible, setVisible] = useState(false);
   return (
     <View style={styles.contenedor}>
       <TextInput
+        ref={ref}
         placeholderTextColor="#5F5F5F"
         autoCapitalize="none"
         autoCorrect={false}
@@ -28,7 +30,9 @@ export default function CampoContrasena({ style, ...resto }: Props) {
       </TouchableOpacity>
     </View>
   );
-}
+});
+
+export default CampoContrasena;
 
 const styles = StyleSheet.create({
   contenedor: { justifyContent: 'center' },

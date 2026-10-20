@@ -38,7 +38,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'people-outline', texto: 'Arriba dice "Estás viendo a:" y el nombre de tu hijo. Tocalo para cambiar de hijo: se muestran los turnos del que elijas.' },
       { icono: 'add-circle-outline', texto: 'Tocá un día sin turnos para agendar uno nuevo. Para agendar otro turno en un día que ya tiene, mantené presionado ese día o usá el botón +. Si no elegís hora, es de todo el día.' },
       { icono: 'calendar-outline', texto: 'Tocá un día con turnos para ver solo los de ese día. Tocalo de nuevo para ver todos.' },
-      { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o eliminarlo.' },
+      { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o borrarlo.' },
       { icono: 'mail-outline', texto: 'Los turnos también se guardan en tu Google Calendar.' },
       { icono: 'trash-outline', texto: 'Arriba ves los turnos de hoy y los próximos. Los anteriores quedan guardados: tocá Ver turnos pasados para consultarlos o Borrar turnos viejos para limpiarlos.' },
     ],
@@ -49,7 +49,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
     consejos: [
       { icono: 'people-outline', texto: 'Tocá Registrar hijo para crear su perfil. Podés agregar a todos los que quieras.' },
       { icono: 'search-outline', texto: 'Con la lupa buscás a tu hijo por las primeras letras de su nombre (por ejemplo "Luc"). Tocá la X para ver a todos de nuevo.' },
-      { icono: 'hand-left-outline', texto: 'Mantené presionado un hijo para cambiarle el nombre o eliminarlo.' },
+      { icono: 'hand-left-outline', texto: 'Mantené presionado un hijo para cambiarle el nombre o borrarlo.' },
       { icono: 'checkmark-circle-outline', texto: 'El hijo que tocás queda elegido: sus documentos y turnos aparecen en Docs y Calendario.' },
     ],
   },

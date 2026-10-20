@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   },
   etiqueta: { flexShrink: 1, fontSize: 16, color: '#3F3F3F' },
   nombre: { fontWeight: 'bold', color: TEXTO },
-  fondo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)' },
+  fondo: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.15)' },
   menu: {
     position: 'absolute',
     backgroundColor: '#fff',

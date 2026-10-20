@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cargando, setCargando] = useState(false);
+  const claveRef = useRef<TextInput>(null);
 
   const handleRegister = async () => {
     if (!email || !password) {
@@ -41,8 +42,8 @@ export default function Register() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.titulo}>Crear cuenta</Text>
 
-      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <CampoContrasena placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword}  />
+      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => claveRef.current?.focus()} />
+      <CampoContrasena ref={claveRef} placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña (mín. 6 caracteres)" value={password} onChangeText={setPassword} returnKeyType="go" onSubmitEditing={() => { if (!cargando) handleRegister(); }} />
 
       <TouchableOpacity style={styles.boton} onPress={handleRegister} disabled={cargando}>
         <Text style={styles.botonTexto}>{cargando ? 'Creando...' : 'Registrarme'}</Text>
