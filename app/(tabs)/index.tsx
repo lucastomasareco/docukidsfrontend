@@ -635,9 +635,9 @@ export default function Docs() {
     const carpeta = carpetas.find((c) => c.id === formCarpeta.id);
     if (!carpeta) return;
     const seguro = await confirmar({
-      titulo: 'Eliminar carpeta',
-      mensaje: `¿Eliminar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a "A la vista" (fuera de las carpetas, también en tu Drive).`,
-      textoConfirmar: 'Eliminar',
+      titulo: 'Borrar carpeta',
+      mensaje: `¿Borrar la carpeta "${carpeta.nombre}"? Sus documentos NO se borran: pasan a "A la vista" (fuera de las carpetas, también en tu Drive).`,
+      textoConfirmar: 'Borrar',
       peligro: true,
     });
     if (!seguro) return;
@@ -647,7 +647,7 @@ export default function Docs() {
       cerrarFormCarpeta();
       cargarDocumentos(); // los documentos de esa carpeta ahora vienen con folder_id = null
     } catch (e) {
-      mostrarError(e, { que: 'eliminar la carpeta', onReintentar: borrarCarpeta });
+      mostrarError(e, { que: 'borrar la carpeta', onReintentar: borrarCarpeta });
     } finally {
       setGuardandoCarpeta(false);
     }
@@ -763,7 +763,9 @@ export default function Docs() {
         />
       ) : (
         <>
-          <Text style={styles.ayuda}>Tocá un documento para abrirlo. Mantené presionado para renombrarlo o borrarlo. Para moverlo, arrastrá el ícono ≡.</Text>
+          <Text style={styles.ayuda}>
+            <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar. Para mover, arrastrá el ícono ≡.
+          </Text>
           <View style={styles.listaDocumentos} onLayout={(e) => {
               alturaListaRef.current = e.nativeEvent.layout.height;
               setAlturaLista(e.nativeEvent.layout.height);
@@ -924,6 +926,8 @@ export default function Docs() {
             value={nombreDocumento}
             onChangeText={setNombreDocumento}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!subiendo) subirDocumento(); }}
           />
           <SelectorCarpeta
             etiqueta="¿Dónde lo guardo?"
@@ -963,6 +967,8 @@ export default function Docs() {
             value={nombreEditado}
             onChangeText={setNombreEditado}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardandoEdicion) guardarEdicion(); }}
           />
           <SelectorCarpeta
             etiqueta="Carpeta"
@@ -991,7 +997,7 @@ export default function Docs() {
             onPress={() => borrarDocumento(editando)}
             disabled={guardandoEdicion}
           >
-            <Text style={styles.botonEliminarTexto}>Eliminar documento</Text>
+            <Text style={styles.botonEliminarTexto}>Borrar este documento</Text>
           </TouchableOpacity>
         </FormularioSuperior>
       )}
@@ -1007,6 +1013,8 @@ export default function Docs() {
             onChangeText={setNombreCarpeta}
             maxLength={30}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardandoCarpeta) guardarCarpeta(); }}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -1028,7 +1036,7 @@ export default function Docs() {
           </View>
           {formCarpeta.modo === 'editar' && !carpetas.find((c) => c.id === formCarpeta.id)?.fija && (
             <TouchableOpacity style={styles.botonEliminar} onPress={borrarCarpeta} disabled={guardandoCarpeta}>
-              <Text style={styles.botonEliminarTexto}>Eliminar carpeta</Text>
+              <Text style={styles.botonEliminarTexto}>Borrar carpeta</Text>
             </TouchableOpacity>
           )}
         </FormularioSuperior>
@@ -1193,6 +1201,7 @@ const styles = StyleSheet.create({
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
   tituloEdicion: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
+  ayudaNegrita: { fontWeight: 'bold', color: '#1F1F1F' },
   botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
   textoSubiendo: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
