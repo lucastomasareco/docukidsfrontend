@@ -93,8 +93,10 @@ export default function Ajustes() {
     esperandoGoogle.current = true;
     try {
       const yaEstabaConectado = conectado === true;
-      // Sin return_to: el backend usa su dirección por defecto.
-      const respuesta = await api.get('/auth/google/url');
+      // return_to: el backend solo lo acepta si coincide con WEB_ORIGIN; si no, usa su dirección por defecto.
+      const respuesta = await api.get('/auth/google/url', {
+        params: { return_to: `${window.location.origin}/ajustes` },
+      });
       if (pestana) {
         pestana.location.href = respuesta.data.url;
       } else {
