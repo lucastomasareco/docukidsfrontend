@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Docukids",
+    "name": "DocuKids",
     "slug": "frontend",
     "version": "1.0.0",
     "scheme": "docukids",
@@ -21,8 +21,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
