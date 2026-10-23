@@ -13,7 +13,8 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as WebBrowser from 'expo-web-browser';
+//import * as WebBrowser from 'expo-web-browser';
+import { abrirAutorizacionGoogle } from '../../lib/google';
 import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
@@ -225,9 +226,7 @@ export default function Docs() {
   const conectarGoogle = async () => {
     setConectandoGoogle(true);
     try {
-      const respuesta = await api.get('/auth/google/url');
-      const url: string = respuesta.data.url;
-      await WebBrowser.openAuthSessionAsync(url, 'docukids://');
+      await abrirAutorizacionGoogle('/');
       // No confiamos en el resultado del navegador (en desarrollo no siempre
       // vuelve solo a la app): volvemos a preguntarle al backend cómo quedó.
       await verificarGoogle();

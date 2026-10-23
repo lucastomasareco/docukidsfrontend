@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+//import * as WebBrowser from 'expo-web-browser';
+//import * as Linking from 'expo-linking';
+import { abrirAutorizacionGoogle } from '../../lib/google';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -66,14 +67,9 @@ export default function Ajustes() {
     setConectando(true);
     esperandoGoogle.current = true;
     try {
-      // Dirección a la que Google/el backend nos devuelve: en Expo Go es
-      // exp://IP:8081/--/ajustes y en el APK es docukids:///ajustes.
-      // Apunta a esta misma pantalla para que el router no muestre "ruta no encontrada".
-      const returnUrl = Linking.createURL('/ajustes');
-      const respuesta = await api.get('/auth/google/url', { params: { return_to: returnUrl } });
-      const url: string = respuesta.data.url;
-
-      const resultado = await WebBrowser.openAuthSessionAsync(url, returnUrl);
+           // Vuelve a esta misma pantalla para que el router no muestre "ruta no encontrada".
+      // La dirección exacta (exp://, docukids:// o http://localhost en web) la arma lib/google.ts.
+      const { resultado } = await abrirAutorizacionGoogle('/ajustes');
 
       // Sea cual sea el resultado (success, cancel, dismiss), preguntamos al backend.
       const yaEstabaConectado = conectado === true;
