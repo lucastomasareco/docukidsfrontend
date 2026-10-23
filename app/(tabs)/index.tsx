@@ -228,16 +228,18 @@ export default function Docs() {
     setConectandoGoogle(true);
     try {
       if (Platform.OS === 'web') {
-        const resultado = await conectarGoogleEnWeb(async () => {
-          try {
-            const r = await api.get('/auth/google/status');
-            const ok = Boolean(r.data.conectado);
-            setGoogleConectado(ok);
-            return ok;
-          } catch {
-            return null;
-          }
-        });
+        const resultado = await conectarGoogleEnWeb({
+          verificar: async () => {
+            try {
+              const r = await api.get('/auth/google/status');
+              const ok = Boolean(r.data.conectado);
+              setGoogleConectado(ok);
+              return ok;
+            } catch {
+              return null;
+            }
+          },
+         });
         if (resultado === 'bloqueado') {
           mostrarAviso(
             'El navegador bloqueó la ventana',
