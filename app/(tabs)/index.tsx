@@ -814,12 +814,6 @@ export default function Docs() {
             }}
           />
         </View>
-      ) : documentos.length === 0 ? (
-        <EstadoVacio
-          icono="document-text-outline"
-          titulo={`${hijoSeleccionado?.name} todavía no tiene documentos`}
-          mensaje="Tocá SUBIR DOCUMENTO y elegí una foto o un PDF del DNI, el carnet de vacunas u otro. Si tiene fecha de vencimiento, te avisamos por email antes de que venza."
-        />
       ) : (
         <>
           <Text style={styles.ayuda}>
@@ -833,6 +827,14 @@ export default function Docs() {
               ref={listaRef}
               data={filas}
               scrollEnabled={!arrastre}
+              /* AGREGADO: Esto muestra el mensaje de vacío solo si no hay filas (carpetas ni documentos), manteniendo visibles los encabezados */
+              ListEmptyComponent={
+                <EstadoVacio
+                  icono="document-text-outline"
+                  titulo={`${hijoSeleccionado?.name} todavía no tiene documentos`}
+                  mensaje="Tocá SUBIR DOCUMENTO y elegí una foto o un PDF del DNI, el carnet de vacunas u otro. Si tiene fecha de vencimiento, te avisamos por email antes de que venza."
+                />
+              }
               onContentSizeChange={(_w: number, h: number) => {
                 contenidoAltoRef.current = h;
               }}
@@ -854,7 +856,6 @@ export default function Docs() {
                 let y = 0;
                 for (let j = 0; j < index; j++) y += alturas[filas[j].clave] ?? ALTURA_ESTIMADA;
                 const zona = h * 0.8; // tramo en el que se va volviendo transparente
-                // scrollY -> [invisible abajo, visible, visible, invisible arriba]
                 const entrada = [y + h - viewport - zona, y + h - viewport, y, y + zona];
                 const opacity = scrollY.interpolate({
                   inputRange: entrada,
@@ -928,7 +929,6 @@ export default function Docs() {
                         </TouchableOpacity>
                       )}
                     </View>
-                    {/* Línea que marca dónde va a quedar el documento arrastrado. */}
                     {item.tipo === 'doc' && (lado === 'antes' || lado === 'despues') && (
                       <View
                         style={[
@@ -943,7 +943,6 @@ export default function Docs() {
                 );
               }}
             />
-            {/* "Fantasma": copia del documento que sigue al dedo mientras se arrastra. */}
             {arrastre && (
               <Animated.View
                 style={[
@@ -964,7 +963,7 @@ export default function Docs() {
             )}
           </View>
         </>
-      )}
+      )}  
 
       {mostrarFormulario && archivoElegido && (
         <FormularioSuperior>

@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../context/ThemeContext';
 import { fechaCorta } from '../lib/fechas';
 import RelojCircular from './RelojCircular';
+import { horaEnPalabras } from '../lib/horas';
 
 // Selector de fecha + hora para el formulario de turnos.
 //  - Fecha: calendario (react-native-calendars, ya instalado). Se muestra dd/mm/aaaa.
@@ -37,7 +38,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
   const [mesVisible, setMesVisible] = useState(fecha);
   const [horaIOS, setHoraIOS] = useState<Date>(horaADate(hora)); // solo iOS (confirma con "Aceptar")
   const [horaWeb, setHoraWeb] = useState<string>(hora || '09:00'); // solo web (versión de escritorio)
-  const [horaConTeclado, setHoraConTeclado] = useState(false); // solo web: true = escribir la hora
+  const [horaConTeclado, setHoraConTeclado] = useState(true); // solo web: true = escribir la hora
   const [fechaEscrita, setFechaEscrita] = useState(''); // solo web: fecha escrita con el teclado
   const [errorFechaEscrita, setErrorFechaEscrita] = useState('');
 
@@ -86,7 +87,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
   const abrirHora = () => {
     setHoraIOS(horaADate(hora));
     setHoraWeb(hora || '09:00');
-    setHoraConTeclado(false);
+    setHoraConTeclado(true);
     setVerHora(true);
   };
 

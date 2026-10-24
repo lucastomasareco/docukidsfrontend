@@ -18,17 +18,11 @@ type Props = {
 
 const TAMANO = 260; // alto y ancho del círculo, en píxeles
 const CENTRO = TAMANO / 2;
-const RADIO = 100; // distancia del centro a los números
+const RADIO_EXTERNO = 100; // Círculo externo (1-12, 0)
+const RADIO_INTERNO = 68;  // Círculo interno (13-23, 12)
 const BURBUJA = 38; // diámetro de cada número
 
-const dos = (n: number) => String(n).padStart(2, '0');
-
-// Ángulo en grados (0 = arriba, sube hacia la derecha) -> hora 1..12 o minuto 0..59.
-export function datoDesdeAngulo(modo: Modo, grados: number): number {
-  const g = ((grados % 360) + 360) % 360;
-  if (modo === 'hora') return Math.round(g / 30) % 12 || 12;
-  return Math.round(g / 6) % 60;
-}
+const dos = (n: number) => String(n).padStart(2, '0')
 
 // Posición (x, y) dentro del círculo de un ángulo dado.
 function posicion(grados: number, radio: number) {
@@ -41,9 +35,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
 
   const [hh, mm] = valor.split(':').map(Number);
   const h24 = Number.isFinite(hh) ? hh : 9;
-  const minuto = Number.isFinite(mm) ? mm : 0;
-  const esPM = h24 >= 12;
-  const h12 = h24 % 12 || 12;
+  const minuto = Number.isFinite(mm) ? mm : 0
 
   const poner = (nuevaH24: number, nuevoMin: number) => onCambiar(`${dos(nuevaH24)}:${dos(nuevoMin)}`);
 
@@ -53,41 +45,111 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
     const dy = e.clientY - (caja.top + caja.height / 2);
     let grados = (Math.atan2(dx, -dy) * 180) / Math.PI;
     if (grados < 0) grados += 360;
-    const dato = datoDesdeAngulo(modo, grados);
-    if (modo === 'hora') poner((dato % 12) + (esPM ? 12 : 0), minuto);
-    else poner(h24, dato);
+
+    const distancia = Math.sqrt(dx * dx + dy * dy);
+    // Si está más cerca del centro, pertenece al anillo interno (12-23); si no, al externo (0-11)
+    const esAnilloInterno = distancia < (RADIO_EXTERNO + RADIO_INTERNO) / 2;
+
+    if (modo === 'hora') {
+      const indice = Math.round(grados / 30) % 12; // 0 para arriba (12 o 0), 1 para la 1, etc.
+      let nuevaHora = 0;
+      if (esAnilloInterno) {
+        // Anillo interno: 12 arriba, luego 13, 14... 23
+        nuevaHora = indice === 0 ? 12 : indice + 12;
+      } else {
+        // Anillo externo: 0 arriba, luego 1, 2... 11
+        nuevaHora = indice === 0 ? 0 : indice;
+      }
+      poner(nuevaHora, minuto);
+    } else {
+      const nuevoMinuto = Math.round(grados / 6) % 60;
+      poner(h24, nuevoMinuto);
+    }
   };
 
-  const anguloMano = modo === 'hora' ? (h12 % 12) * 30 : minuto * 6;
-  const textoMano = modo === 'hora' ? String(h12) : dos(minuto);
-  const punta = posicion(anguloMano, RADIO);
+  // Cálculo de la posición de la manecilla
+  const indiceActual = modo === 'hora' ? (h24 === 0 || h24 === 12 ? 0 : h24 % 12) : Math.round(minuto / 5) % 12;
+  const anguloMano = indiceActual * 30;
+  
+  let radioMano = RADIO_EXTERNO;
+  if (modo === 'hora') {
+    const esInterno = (h24 >= 13 && h24 <= 23) || h24 === 12;
+    radioMano = esInterno ? RADIO_INTERNO : RADIO_EXTERNO;
+  }
+  
+  const punta = posicion(anguloMano, modo === 'hora' ? radioMano : RADIO_EXTERNO);
+  const textoMano = modo === 'hora' ? dos(h24) : dos(minuto);
 
-  // Los números del círculo: 1..12 para la hora, 00,05,...,55 para los minutos.
-  const numeros = Array.from({ length: 12 }, (_, i) => {
-    const etiqueta = modo === 'hora' ? (i === 0 ? 12 : i) : i * 5;
+  // Los números del círculo: 1..11 y 12 a 23 para la hora, 00,05,...,55 para los minutos.
+  // Generar números de las horas (dos aros)
+  const numerosHoras = Array.from({ length: 12 }, (_, i) => {
     const grados = i * 30;
-    const p = posicion(grados, RADIO);
-    return h(
-      'div',
-      {
-        key: i,
+    // Externo: 0 arriba (i=0), 1, 2... 11
+    const horaExt = i === 0 ? 0 : i;
+    // Interno: 12 arriba (i=0), 13, 14... 23
+    const horaInt = i === 0 ? 12 : i + 12;
+
+    const pExt = posicion(grados, RADIO_EXTERNO);
+    const pInt = posicion(grados, RADIO_INTERNO);
+
+    return [
+      // Número externo
+      h('div', {
+        key: `ext-${i}`,
         style: {
           position: 'absolute',
-          left: p.x - BURBUJA / 2,
-          top: p.y - BURBUJA / 2,
+          left: pExt.x - BURBUJA / 2,
+          top: pExt.y - BURBUJA / 2,
           width: BURBUJA,
           height: BURBUJA,
           lineHeight: `${BURBUJA}px`,
           textAlign: 'center',
-          fontSize: 17,
+          fontSize: 15,
           color: '#1F1F1F',
           pointerEvents: 'none',
         },
+      }, String(horaExt)),
+      // Número interno
+      h('div', {
+        key: `int-${i}`,
+        style: {
+          position: 'absolute',
+          left: pInt.x - BURBUJA / 2,
+          top: pInt.y - BURBUJA / 2,
+          width: BURBUJA,
+          height: BURBUJA,
+          lineHeight: `${BURBUJA}px`,
+          textAlign: 'center',
+          fontSize: 13,
+          color: '#333333',
+          pointerEvents: 'none',
+        },
+      }, String(horaInt))
+    ];
+  }).flat();
+  // Generar números de los minutos
+  // Generar números de los minutos
+  const numerosMinutos = Array.from({ length: 12 }, (_, i) => {
+    const etiqueta = i * 5;
+    const grados = i * 30;
+    const p = posicion(grados, RADIO_EXTERNO);
+    return h('div', {
+      key: `min-${i}`,
+      style: {
+        position: 'absolute',
+        left: p.x - BURBUJA / 2,
+        top: p.y - BURBUJA / 2,
+        width: BURBUJA,
+        height: BURBUJA,
+        lineHeight: `${BURBUJA}px`,
+        textAlign: 'center',
+        fontSize: 15,
+        color: '#1F1F1F',
+        pointerEvents: 'none',
       },
-      modo === 'hora' ? String(etiqueta) : dos(etiqueta as number)
-    );
+    }, dos(etiqueta));
   });
-
+  
   const boton = (activo: boolean): any => ({
     cursor: 'pointer',
     userSelect: 'none',
@@ -118,15 +180,9 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
     h(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 } },
-      h('div', { style: boton(modo === 'hora'), onClick: () => setModo('hora') }, dos(h12)),
+      h('div', { style: boton(modo === 'hora'), onClick: () => setModo('hora') }, dos(h24)),
       h('div', { style: { fontSize: 38, color: '#1F1F1F' } }, ':'),
-      h('div', { style: boton(modo === 'minuto'), onClick: () => setModo('minuto') }, dos(minuto)),
-      h(
-        'div',
-        { style: { display: 'flex', flexDirection: 'column', gap: 4, marginLeft: 6 } },
-        h('div', { style: botonAmPm(!esPM), onClick: () => poner(esPM ? h24 - 12 : h24, minuto) }, 'AM'),
-        h('div', { style: botonAmPm(esPM), onClick: () => poner(esPM ? h24 : h24 + 12, minuto) }, 'PM')
-      )
+      h('div', { style: boton(modo === 'minuto'), onClick: () => setModo('minuto') }, dos(minuto))
     ),
     // ---- El círculo ----
     h(
@@ -168,9 +224,9 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
         style: {
           position: 'absolute',
           left: CENTRO - 1,
-          top: CENTRO - RADIO,
+          top: CENTRO - RADIO_EXTERNO,
           width: 2,
-          height: RADIO,
+          height: RADIO_EXTERNO,
           backgroundColor: '#1F1F1F',
           transformOrigin: '50% 100%',
           transform: `rotate(${anguloMano}deg)`,
@@ -199,11 +255,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
         },
         textoMano
       ),
-      ...numeros.filter((_, i) => {
-        // no repetir el número que ya tapa la burbuja de color
-        const dato = modo === 'hora' ? (i === 0 ? 12 : i) : i * 5;
-        return !(dato === (modo === 'hora' ? h12 : minuto));
-      })
+      modo === 'hora' ? numerosHoras : numerosMinutos
     ),
     h(
       'div',
