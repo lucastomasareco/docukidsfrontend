@@ -104,7 +104,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
           onPress={abrirHora}
           accessibilityLabel="Elegir la hora del turno"
         >
-          <Text style={[styles.campoTexto, !hora && styles.campoVacio]}>{hora || 'Sin hora (todo el día)'}</Text>
+          <Text style={[styles.campoTexto, !hora && styles.campoVacio]}>{hora ? horaEnPalabras(hora) : 'Sin hora (todo el día)'}</Text>
         </TouchableOpacity>
         {!!hora && (
           <TouchableOpacity

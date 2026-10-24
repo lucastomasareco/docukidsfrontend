@@ -135,17 +135,18 @@ export default function Hijos() {
         cargarHijos();
         return;
       }
-      mostrarError(error, { que: 'eliminar el perfil', onReintentar: () => eliminar(hijo) });
+      mostrarError(error, { que: 'borrar el perfil', onReintentar: () => eliminar(hijo) });
       return;
     }
     cerrarFormulario();
+    mostrarAviso(`${hijo.name} fue borrado`, 'Ya no aparece en tu lista.', { icono: 'checkmark-circle-outline' });
   };
 
   const confirmarEliminar = async (hijo: Hijo) => {
     const seguro = await confirmar({
-      titulo: `Eliminar a ${hijo.name}`,
+      titulo: `Borrar a ${hijo.name}`,
       mensaje: 'Esto borra también sus documentos y sus turnos guardados. Esta acción no se puede deshacer.',
-      textoConfirmar: 'Eliminar',
+      textoConfirmar: 'Borrar',
       peligro: true,
     });
     if (seguro) await eliminar(hijo);
@@ -289,6 +290,8 @@ export default function Hijos() {
             value={nombreNuevo}
             onChangeText={setNombreNuevo}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardando && !eliminando) handleGuardar(); }}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -307,13 +310,21 @@ export default function Hijos() {
             </TouchableOpacity>
           </View>
           {hijoEditando && (
-            <TouchableOpacity
-              style={styles.botonEliminar}
-              onPress={() => confirmarEliminar(hijoEditando)}
-              disabled={guardando || eliminando}
-            >
-              <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando...' : 'Eliminar hijo'}</Text>
-            </TouchableOpacity>
+            // Zona aparte: separada de "Guardar" para que se entienda que borrar
+            // es una acción distinta y que NO hace falta tocar Guardar después.
+            <View style={styles.zonaBorrar}>
+              <Text style={styles.textoBorrar}>
+                ¿Ya no querés tener a {hijoEditando.name} en la app? Se borra en el momento: no hace falta tocar Guardar.
+              </Text>
+              <TouchableOpacity
+                style={styles.botonEliminar}
+                onPress={() => confirmarEliminar(hijoEditando)}
+                disabled={guardando || eliminando}
+                accessibilityLabel={`Borrar a ${hijoEditando.name}`}
+              >
+                <Text style={styles.botonEliminarTexto}>{eliminando ? 'Borrando...' : `Borrar a ${hijoEditando.name}`}</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </FormularioSuperior>
       )}
@@ -393,6 +404,8 @@ const styles = StyleSheet.create({
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
-  botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
+  zonaBorrar: { marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#d0d0d0' },
+  textoBorrar: { fontSize: 14, lineHeight: 20, color: '#3F3F3F' },
+  botonEliminar: { marginTop: 10, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
 });

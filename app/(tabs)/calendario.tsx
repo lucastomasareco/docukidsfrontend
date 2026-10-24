@@ -294,7 +294,7 @@ export default function Calendario() {
         cargarTurnos();
         return;
       }
-      mostrarError(e, { que: 'eliminar el turno', onReintentar: () => eliminarTurno(turno) });
+      mostrarError(e, { que: 'borrar el turno', onReintentar: () => eliminarTurno(turno) });
     } finally {
       setEliminando(false);
     }
@@ -305,9 +305,9 @@ export default function Calendario() {
     if (!turnoEditando) return;
     const turno = turnoEditando;
     const seguro = await confirmar({
-      titulo: 'Eliminar turno',
-      mensaje: `¿Eliminar "${turno.title}" del ${fechaCorta(turno.date)}? También se borra de Google Calendar.`,
-      textoConfirmar: 'Eliminar',
+      titulo: 'Borrar turno',
+      mensaje: `¿Borrar "${turno.title}" del ${fechaCorta(turno.date)}? También se borra de Google Calendar.`,
+      textoConfirmar: 'Borrar',
       peligro: true,
     });
     if (seguro) await eliminarTurno(turno);
@@ -573,7 +573,7 @@ export default function Calendario() {
                   onLongPress={() => abrirEdicion(item)}
                   activeOpacity={0.7}
                   accessibilityLabel={`Turno ${item.title}`}
-                  accessibilityHint="Mantené presionado para editar o eliminar"
+                  accessibilityHint="Mantené presionado para editar o borrar"
                 >
                   <View
                     style={[
@@ -629,6 +629,8 @@ export default function Calendario() {
             placeholder="Notas (opcional)"
             value={notasNuevas}
             onChangeText={setNotasNuevas}
+            returnKeyType="done"
+            onSubmitEditing={() => { if (!guardando && !eliminando) crearTurno(); }}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -653,9 +655,9 @@ export default function Calendario() {
               style={styles.botonEliminar}
               onPress={confirmarEliminar}
               disabled={guardando || eliminando}
-              accessibilityLabel="Eliminar este turno"
+              accessibilityLabel="Borrar este turno"
             >
-              <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando...' : 'Eliminar turno'}</Text>
+              <Text style={styles.botonEliminarTexto}>{eliminando ? 'Borrando...' : 'Borrar turno'}</Text>
             </TouchableOpacity>
           )}
           {guardando && (
