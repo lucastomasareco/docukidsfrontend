@@ -144,7 +144,7 @@ export default function Hijos() {
 
   const confirmarEliminar = async (hijo: Hijo) => {
     const seguro = await confirmar({
-      titulo: `Borrar a ${hijo.name}`,
+      titulo: `Borrar perfil de ${hijo.name}`,
       mensaje: 'Esto borra también sus documentos y sus turnos guardados. Esta acción no se puede deshacer.',
       textoConfirmar: 'Borrar',
       peligro: true,
@@ -320,9 +320,9 @@ export default function Hijos() {
                 style={styles.botonEliminar}
                 onPress={() => confirmarEliminar(hijoEditando)}
                 disabled={guardando || eliminando}
-                accessibilityLabel={`Borrar a ${hijoEditando.name}`}
+                accessibilityLabel={`Borrar perfil de ${hijoEditando.name}`}
               >
-                <Text style={styles.botonEliminarTexto}>{eliminando ? 'Borrando...' : `Borrar a ${hijoEditando.name}`}</Text>
+                <Text style={styles.botonEliminarTexto}>{eliminando ? 'Borrando...' : `Borrar perfil de ${hijoEditando.name}`}</Text>
               </TouchableOpacity>
             </View>
           )}
