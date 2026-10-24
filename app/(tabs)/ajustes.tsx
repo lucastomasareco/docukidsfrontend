@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,7 +62,102 @@ export default function Ajustes() {
     return () => sub.remove();
   }, [verificarConexion]);
 
+  // Al salir de la pantalla, dejamos de esperar a Google.
+  useEffect(() => {
+    return () => {
+      esperandoGoogle.current = false;
+    };
+  }, []);
+
+  // VERSIÓN DE ESCRITORIO (navegador): no hay "app a la que volver", así que el
+  // botón "Volver a Docukids" de la página de Google no sirve. En su lugar:
+  //  1) abrimos Google en una pestaña nueva (se abre YA, dentro del clic, para
+  //     que el navegador no la bloquee);
+  //  2) preguntamos al backend cada pocos segundos si Google quedó conectado;
+  //  3) apenas lo está (o si se cierra la pestaña) avisamos y cerramos la pestaña.
+  const conectarGoogleWeb = async () => {
+    // Dentro de la app de escritorio (Electron) las ventanas nuevas las maneja
+    // main.js: abre el enlace en el navegador del sistema (Google no deja iniciar
+    // sesión dentro de Electron). Ahí no hay "pestaña" que podamos cerrar o vigilar.
+    const enElectron = /Electron/i.test(navigator.userAgent);
+    const pestana = enElectron ? null : window.open('', '_blank');
+    if (!enElectron && !pestana) {
+      mostrarAviso(
+        'El navegador bloqueó la ventana',
+        'Permití las ventanas emergentes para esta página e intentá de nuevo.',
+        { icono: 'logo-google' }
+      );
+      return;
+    }
+    setConectando(true);
+    esperandoGoogle.current = true;
+    try {
+      const yaEstabaConectado = conectado === true;
+      // return_to: el backend solo lo acepta si coincide con WEB_ORIGIN; si no, usa su dirección por defecto.
+      const respuesta = await api.get('/auth/google/url', {
+        params: { return_to: `${window.location.origin}/ajustes` },
+      });
+      if (pestana) {
+        pestana.location.href = respuesta.data.url;
+      } else {
+        window.open(respuesta.data.url, '_blank');
+        if (yaEstabaConectado) {
+          // No podemos notar el cambio (ya figuraba conectado): que la persona nos avise volviendo.
+          mostrarAviso('Seguí en tu navegador', 'Terminá la conexión con Google y volvé a Docukids.', {
+            icono: 'logo-google',
+          });
+          return;
+        }
+      }
+
+      const limite = Date.now() + 3 * 60 * 1000; // máximo 3 minutos esperando
+      let ok: boolean | null = null;
+      while (esperandoGoogle.current && Date.now() < limite) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const cerrada = pestana ? pestana.closed : false;
+        ok = await verificarConexion();
+        // Si ya estaba conectado, "conectado" no cambia: solo sabemos que terminó
+        // cuando la persona cierra la pestaña.
+        if ((ok && !yaEstabaConectado) || cerrada) break;
+      }
+      if (!esperandoGoogle.current) return; // salió de la pantalla
+      try {
+        pestana?.close();
+      } catch {
+        // si el navegador no deja cerrarla, la persona la cierra a mano
+      }
+      if (ok) {
+        mostrarAviso(
+          'Google conectado',
+          pestana
+            ? 'Ya podés subir documentos y crear turnos.'
+            : 'Ya podés subir documentos y crear turnos. Podés cerrar la pestaña de Google.',
+          { icono: 'checkmark-circle-outline' }
+        );
+      } else if (ok === false && Date.now() >= limite) {
+        mostrarAviso('No se pudo conectar', 'Google no completó la conexión. Probá de nuevo.', {
+          icono: 'logo-google',
+          etiquetaAccion: 'Reintentar',
+          onAccion: conectarGoogle,
+        });
+      }
+      // Si ok === false porque cerró la pestaña a propósito: canceló, no mostramos nada.
+    } catch (e) {
+      try {
+        pestana?.close();
+      } catch {}
+      mostrarError(e, { que: 'conectar con Google', onReintentar: conectarGoogle });
+    } finally {
+      esperandoGoogle.current = false;
+      setConectando(false);
+    }
+  };
+
   const conectarGoogle = async () => {
+    if (Platform.OS === 'web') {
+      await conectarGoogleWeb();
+      return;
+    }
     setConectando(true);
     esperandoGoogle.current = true;
     try {

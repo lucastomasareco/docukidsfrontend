@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   Linking,
+  Platform,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,6 +29,7 @@ import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
+import { conectarGoogleEnWeb } from '../../lib/googleWeb';
 import { colorConOpacidad, fechaCorta } from '../../lib/fechas';
 import { SUELTO, useCarpetas } from '../../lib/carpetas';
 import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
@@ -225,6 +227,32 @@ export default function Docs() {
   const conectarGoogle = async () => {
     setConectandoGoogle(true);
     try {
+      if (Platform.OS === 'web') {
+        const resultado = await conectarGoogleEnWeb(async () => {
+          try {
+            const r = await api.get('/auth/google/status');
+            const ok = Boolean(r.data.conectado);
+            setGoogleConectado(ok);
+            return ok;
+          } catch {
+            return null;
+          }
+        });
+        if (resultado === 'bloqueado') {
+          mostrarAviso(
+            'El navegador bloqueó la ventana',
+            'Permití las ventanas emergentes para esta página e intentá de nuevo.',
+            { icono: 'logo-google' }
+          );
+        } else if (resultado === 'tiempo') {
+          mostrarAviso('No se pudo conectar', 'Google no completó la conexión. Probá de nuevo.', {
+            icono: 'logo-google',
+            etiquetaAccion: 'Reintentar',
+            onAccion: conectarGoogle,
+          });
+        }
+        return;
+      }
       const respuesta = await api.get('/auth/google/url');
       const url: string = respuesta.data.url;
       await WebBrowser.openAuthSessionAsync(url, 'docukids://');
@@ -295,7 +323,7 @@ export default function Docs() {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a tus fotos para subir documentos.', {
         icono: 'images-outline',
         etiquetaAccion: 'Abrir ajustes del teléfono',
-        onAccion: () => Linking.openSettings(),
+        onAccion: () => { if (Platform.OS !== 'web') Linking.openSettings(); },
       });
       return;
     }
@@ -316,7 +344,7 @@ export default function Docs() {
       mostrarAviso('Permiso necesario', 'Docukids necesita acceso a la cámara para sacar la foto.', {
         icono: 'camera-outline',
         etiquetaAccion: 'Abrir ajustes del teléfono',
-        onAccion: () => Linking.openSettings(),
+        onAccion: () => { if (Platform.OS !== 'web') Linking.openSettings(); },
       });
       return;
     }
@@ -346,6 +374,23 @@ export default function Docs() {
     setMostrarFormulario(true);
   };
 
+  // WEB: un solo botón para fotos y PDF (en el navegador no hay "cámara" ni "galería" separadas).
+  const elegirArchivoWeb = async () => {
+    const resultado = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+    if (resultado.canceled || !resultado.assets || resultado.assets.length === 0) return;
+    const asset = resultado.assets[0];
+    const nombre = asset.name || `documento_${Date.now()}`;
+    setArchivoElegido({
+      uri: asset.uri,
+      mimeType: asset.mimeType || (nombre.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+      nombreArchivo: nombre,
+    });
+    setMostrarFormulario(true);
+  };
+
   const abrirOpciones = () => {
     setCarpetaDestino(carpetaPorDefecto);
     setMostrarMenu(true);
@@ -363,11 +408,22 @@ export default function Docs() {
       return;
     }
     const formData = new FormData();
-    formData.append('file', {
-      uri: archivoElegido.uri,
-      name: archivoElegido.nombreArchivo,
-      type: archivoElegido.mimeType,
-    } as any);
+    if (Platform.OS === 'web') {
+      // En el navegador el archivo es un Blob (la "uri" es blob: o data:), no un objeto {uri,name,type}.
+      try {
+        const blob = await (await fetch(archivoElegido.uri)).blob();
+        formData.append('file', blob, archivoElegido.nombreArchivo);
+      } catch (e) {
+        mostrarError(e, { que: 'leer el archivo elegido' });
+        return;
+      }
+    } else {
+      formData.append('file', {
+        uri: archivoElegido.uri,
+        name: archivoElegido.nombreArchivo,
+        type: archivoElegido.mimeType,
+      } as any);
+    }
     formData.append('child_id', String(seleccionadoId));
     formData.append('name', nombreDocumento.trim());
     // Sin folder_id el backend lo deja suelto, en la raíz "Docukids".
@@ -376,7 +432,8 @@ export default function Docs() {
     setSubiendo(true);
     try {
       const respuesta = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        // En web NO se fija Content-Type: el navegador agrega solo el "boundary" del multipart.
+        headers: Platform.OS === 'web' ? undefined : { 'Content-Type': 'multipart/form-data' },
         timeout: 120000,
       });
       const nombreSubido = nombreDocumento.trim();
@@ -1055,15 +1112,23 @@ export default function Docs() {
         >
           <View style={styles.menu} onStartShouldSetResponder={() => true}>
             <Text style={styles.menuTitulo}>Agregar documento</Text>
-            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(tomarFoto)}>
-              <Text style={styles.menuOpcionTexto}>Tomar foto</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirDeGaleria)}>
-              <Text style={styles.menuOpcionTexto}>Elegir de galería</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirPDF)}>
-              <Text style={styles.menuOpcionTexto}>Elegir PDF</Text>
-            </TouchableOpacity>
+            {Platform.OS === 'web' ? (
+              <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirArchivoWeb)}>
+                <Text style={styles.menuOpcionTexto}>Elegir archivo (foto o PDF)</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(tomarFoto)}>
+                  <Text style={styles.menuOpcionTexto}>Tomar foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirDeGaleria)}>
+                  <Text style={styles.menuOpcionTexto}>Elegir de galería</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuOpcion} onPress={() => elegirOpcion(elegirPDF)}>
+                  <Text style={styles.menuOpcionTexto}>Elegir PDF</Text>
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity style={styles.menuCancelar} onPress={() => setMostrarMenu(false)}>
               <Text style={styles.menuCancelarTexto}>Cancelar</Text>
             </TouchableOpacity>
