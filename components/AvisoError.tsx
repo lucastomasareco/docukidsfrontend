@@ -20,6 +20,7 @@ export const ICONO_POR_TIPO: Record<TipoError, NombreIcono> = {
   archivo_vacio: 'document-outline',
   no_encontrado: 'search-outline',
   datos_invalidos: 'create-outline',
+  familia: 'people-outline',
   servidor: 'construct-outline',
   generico: 'alert-circle-outline',
 };

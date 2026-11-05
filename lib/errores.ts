@@ -15,6 +15,7 @@ export type TipoError =
   | 'archivo_vacio'
   | 'no_encontrado'
   | 'datos_invalidos'
+  | 'familia'
   | 'servidor'
   | 'generico';
 
@@ -146,6 +147,45 @@ export function interpretarError(e: any, que = 'completar la acción'): ErrorAmi
       'Archivo no permitido',
       'Solo se pueden subir fotos (JPG, PNG, WebP o HEIC) y archivos PDF.'
     );
+  }
+
+  // --- Familia ---
+  // El backend no manda códigos: se distingue por estado + texto del "detail".
+  // Va ANTES de "no_encontrado" y de la regla de carpetas (409), si no, un código
+  // inválido diría "puede que ya se haya borrado" y un 409 caería en otro mensaje.
+  if (estado === 404 && detalle.includes('ese código no existe')) {
+    return armar('familia', 'Código no válido', 'Ese código no existe, venció o ya se usó. Pedile al titular que genere uno nuevo.');
+  }
+  if (estado === 404 && (detalle.includes('no formás parte de ninguna familia') || detalle.includes('todavía no tenés una familia'))) {
+    return armar('familia', 'No encontramos tu familia', 'Puede que ya no formes parte de ella. Revisá la sección Familia en Ajustes.');
+  }
+  if (estado === 404 && detalle.includes('esa persona no es parte')) {
+    return armar('familia', 'Esa persona ya no está en la familia', 'Revisá la sección Familia en Ajustes para ver quién forma parte.');
+  }
+  if (estado === 403 && detalle.includes('titular no puede salir')) {
+    return armar('familia', 'El titular no puede salir', 'Si querés terminar la familia, tenés que disolverla.');
+  }
+  if (estado === 403 && detalle.includes('solo el titular')) {
+    return armar('familia', 'Solo el titular puede hacerlo', 'Esta acción la hace quien conectó la cuenta de Google. Pedísela a esa persona.');
+  }
+  if (estado === 409 && detalle.includes('ya formás parte')) {
+    return armar('familia', 'Ya estás en una familia', 'Cada cuenta puede estar en una sola familia. Revisá la sección Familia en Ajustes.');
+  }
+  if (estado === 409 && detalle.includes('ya está completa')) {
+    return armar('familia', 'Esa familia está completa', 'Una familia puede tener como máximo 2 personas.');
+  }
+  if (estado === 409 && detalle.includes('ya tenés hijos')) {
+    return armar(
+      'familia',
+      'Tu cuenta ya tiene hijos cargados',
+      'Para unirte a una familia, tu cuenta tiene que estar sin hijos. Borralos y probá de nuevo.'
+    );
+  }
+  if (estado === 409 && detalle.includes('titular no puede quitarse')) {
+    return armar('familia', 'El titular no puede quitarse', 'Si querés terminar la familia, tenés que disolverla.');
+  }
+  if (estado === 409 && detalle.includes('tu familia usa la cuenta de google')) {
+    return armar('familia', 'La cuenta de Google es del titular', 'Tu familia usa la cuenta de Google del titular. Solo esa persona puede conectarla.');
   }
 
   // --- Resto de errores del servidor ---
