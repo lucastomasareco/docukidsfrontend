@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ChildrenProvider } from '../context/ChildrenContext';
+import { FamilyProvider } from '../context/FamilyContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import AvisosProvider from '../components/AvisosProvider';
 
@@ -39,9 +40,11 @@ export default function RootLayout() {
     <AuthProvider>
       <ThemeProvider>
         <ChildrenProvider>
-          <AvisosProvider>
-            <RaizConGuardias />
-          </AvisosProvider>
+          <FamilyProvider>
+            <AvisosProvider>
+              <RaizConGuardias />
+            </AvisosProvider>
+          </FamilyProvider>
         </ChildrenProvider>
       </ThemeProvider>
     </AuthProvider>
