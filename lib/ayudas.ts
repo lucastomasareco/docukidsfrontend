@@ -6,7 +6,8 @@ export type PantallaAyuda = 'docs' | 'calendario' | 'hijos' | 'ajustes';
 export type ConsejoAyuda = {
   icono: 'cloud-upload-outline' | 'search-outline' | 'reorder-three-outline' | 'folder-open-outline' | 'hand-left-outline' | 'color-palette-outline' | 'calendar-outline'
     | 'add-circle-outline' | 'people-outline' | 'logo-google' | 'lock-closed-outline' | 'mail-outline'
-    | 'checkmark-circle-outline' | 'trash-outline';
+    | 'checkmark-circle-outline' | 'trash-outline'
+    | 'person-add-outline' | 'key-outline' | 'exit-outline';
   texto: string;
 };
 
@@ -51,13 +52,18 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'search-outline', texto: 'Con la lupa buscás a tu hijo por las primeras letras de su nombre (por ejemplo "Luc"). Tocá la X para ver a todos de nuevo.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un hijo para cambiarle el nombre o borrarlo.' },
       { icono: 'checkmark-circle-outline', texto: 'El hijo que tocás queda elegido: sus documentos y turnos aparecen en Docs y Calendario.' },
+      { icono: 'people-outline', texto: 'Si estás en una familia, los hijos son compartidos: las dos personas ven y editan los mismos. Los cambios del otro los ves al volver a entrar a esta pantalla.' },
     ],
   },
   ajustes: {
     titulo: 'Ayuda: Ajustes',
     nombre: 'Ajustes',
     consejos: [
-      { icono: 'logo-google', texto: 'Conectá tu cuenta de Google: es necesaria para subir documentos, agendar turnos y recibir avisos por email.' },
+      { icono: 'logo-google', texto: 'Conectá tu cuenta de Google: es necesaria para subir documentos, agendar turnos y recibir avisos por email. Si estás en una familia, se usa la cuenta de Google del titular y solo él puede conectarla.' },
+      { icono: 'people-outline', texto: 'Familia: podés compartir los hijos, documentos y turnos con otra persona (por ejemplo, el otro padre o madre). Son 2 personas como máximo y las dos pueden editar todo. Quien crea la familia es el titular.' },
+      { icono: 'person-add-outline', texto: 'Si sos el titular, tocá Generar código de invitación y mandáselo a la otra persona con Copiar invitación. El código dura 24 horas y sirve una sola vez; si generás otro, el anterior deja de servir.' },
+      { icono: 'key-outline', texto: 'Si te pasaron un código, tocá Unirme con código y escribilo. Para unirte, tu cuenta tiene que estar sin hijos cargados.' },
+      { icono: 'exit-outline', texto: 'El miembro puede Salir de la familia. El titular puede Quitar a la otra persona o Disolver la familia. Quien sale o es quitado queda con la cuenta vacía: no se copia nada.' },
       { icono: 'color-palette-outline', texto: 'Elegí los colores de la app en Apariencia.' },
       { icono: 'lock-closed-outline', texto: 'Desde acá podés cambiar tu contraseña o cerrar sesión.' },
     ],
