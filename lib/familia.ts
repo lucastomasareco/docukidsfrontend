@@ -105,3 +105,28 @@ export function textoVencimiento(ms: number): string {
   if (h === 0) return `Vence en ${m} min`;
   return m === 0 ? `Vence en ${h} h` : `Vence en ${h} h ${m} min`;
 }
+
+// "ABC234" → "ABC 234" (más fácil de leer y de dictar). Si no tiene 6 caracteres, se deja igual.
+export function formatearCodigo(codigo: string): string {
+  const c = normalizarCodigo(codigo);
+  return c.length === 6 ? `${c.slice(0, 3)} ${c.slice(3)}` : c;
+}
+
+// Fecha y hora de vencimiento, en la hora del aparato ("jue 6 nov, 11:30").
+// Devuelve '' si la fecha no es válida.
+export function formatearVence(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// El mensaje que se comparte o se copia para pasárselo a la otra persona.
+export function textoInvitacion(codigo: string, venceIso: string | undefined): string {
+  const vence = formatearVence(venceIso);
+  return (
+    `Te invito a mi familia en Docukids. Tu código es ${formatearCodigo(codigo)}` +
+    (vence ? ` y sirve hasta el ${vence}` : '') +
+    `. Abrí Ajustes → Familia → "Unirme con código" y escribilo.`
+  );
+}

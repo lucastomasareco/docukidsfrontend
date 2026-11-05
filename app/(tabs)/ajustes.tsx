@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform, Share } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useFocusEffect } from 'expo-router';
@@ -11,16 +11,36 @@ import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
 import { useAvisos } from '../../context/AvisosContext';
 import { useFamily } from '../../context/FamilyContext';
+import { useChildren } from '../../context/ChildrenContext';
 import { TarjetaError } from '../../components/AvisoError';
 import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
+import { codigoCompleto, formatearCodigo, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
+import { copiarTexto } from '../../lib/portapapeles';
 
 export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
-  const { familia, cargando: cargandoFamilia, error: errorFamilia, cargarFamilia, crearFamilia } = useFamily();
+  const { familia, cargando: cargandoFamilia, error: errorFamilia, cargarFamilia, crearFamilia, invitar, unirse } = useFamily();
+  const { hijos } = useChildren();
+  // Ventana "Unirme con código"
+  const [unirseVisible, setUnirseVisible] = useState(false);
+  const [codigoEscrito, setCodigoEscrito] = useState('');
+  const [uniendo, setUniendo] = useState(false);
+  // El error va ADENTRO de la ventana: un aviso de arriba quedaría tapado por el Modal.
+  const [errorUnirse, setErrorUnirse] = useState<ErrorAmigable | null>(null);
   const [creandoFamilia, setCreandoFamilia] = useState(false);
+  const [generandoCodigo, setGenerandoCodigo] = useState(false);
+  // Reloj para la cuenta regresiva del código (se actualiza cada 30 s, y solo si hay código).
+  const [ahora, setAhora] = useState(() => Date.now());
+  const hayCodigo = !!familia?.invite_code;
+  useEffect(() => {
+    if (!hayCodigo) return;
+    setAhora(Date.now());
+    const id = setInterval(() => setAhora(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [hayCodigo]);
   const [conectando, setConectando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   // Formulario "Cambiar contraseña"
@@ -194,6 +214,64 @@ export default function Ajustes() {
     mostrarAviso('Familia creada', 'Ahora sos el titular de tu familia.', { icono: 'checkmark-circle-outline' });
   };
 
+  const generarCodigo = async () => {
+    setGenerandoCodigo(true);
+    const { error } = await invitar();
+    setGenerandoCodigo(false);
+    if (error) {
+      mostrarError(error, { que: 'generar el código', onReintentar: generarCodigo });
+      cargarFamilia({ silencioso: true }); // por si ya no sos titular o la familia cambió
+    }
+    // Si salió bien, el código aparece solo: el contexto ya volvió a leer la familia.
+  };
+
+  // Web: copia el mensaje. Teléfono: abre el menú de compartir (que también permite copiar).
+  const copiarOCompartirCodigo = async () => {
+    if (!familia?.invite_code) return;
+    const mensaje = textoInvitacion(familia.invite_code, familia.invite_expires_at);
+    if (Platform.OS === 'web') {
+      const ok = await copiarTexto(mensaje);
+      if (ok) {
+        mostrarAviso('Invitación copiada', 'Pegala en un mensaje para la otra persona.', { icono: 'checkmark-circle-outline' });
+      } else {
+        mostrarAviso('No se pudo copiar', 'Seleccioná el código en pantalla y copialo a mano.', { icono: 'copy-outline' });
+      }
+      return;
+    }
+    try {
+      await Share.share({ message: mensaje });
+    } catch {
+      mostrarAviso('No se pudo compartir', 'Anotá el código y pasáselo a la otra persona.', { icono: 'share-outline' });
+    }
+  };
+
+  const cerrarUnirse = () => {
+    setUnirseVisible(false);
+    setCodigoEscrito('');
+    setErrorUnirse(null);
+  };
+
+  const ejecutarUnirse = async () => {
+    if (!codigoCompleto(codigoEscrito)) {
+      setErrorUnirse(errorSimple('Código incompleto', 'El código tiene 6 letras y números. Revisalo.'));
+      return;
+    }
+    setErrorUnirse(null);
+    setUniendo(true);
+    const { error } = await unirse(codigoEscrito);
+    setUniendo(false);
+    if (error) {
+      setErrorUnirse(interpretarError(error, 'unirte a la familia'));
+      return;
+    }
+    cerrarUnirse();
+    // Si tenías Google propio, el backend lo desconectó: ahora vale el del titular.
+    verificarConexion();
+    mostrarAviso('Te uniste a la familia', 'Ahora ves los hijos, documentos y turnos del titular.', {
+      icono: 'checkmark-circle-outline',
+    });
+  };
+
   const cerrarFormularioClave = () => {
     setClaveVisible(false);
     setClaveActual('');
@@ -301,7 +379,8 @@ export default function Ajustes() {
           <>
             <Text style={styles.ayudaAncha}>
               Una familia es de hasta 2 personas (por ejemplo, madre y padre) que ven los mismos hijos, documentos y
-              turnos. Quien la crea es el titular: se usa su cuenta de Google.
+              turnos. Quien la crea es el titular: se usa su cuenta de Google. Si ya te dieron un código, tocá
+              "Unirme con código".
             </Text>
             <TouchableOpacity
               style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
@@ -309,6 +388,13 @@ export default function Ajustes() {
               disabled={creandoFamilia}
             >
               <Text style={styles.botonTexto}>{creandoFamilia ? 'Creando…' : 'Crear familia'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botonGoogle, { borderWidth: 2, borderColor: tema.primary }]}
+              onPress={() => setUnirseVisible(true)}
+              disabled={creandoFamilia}
+            >
+              <Text style={styles.botonTexto}>Unirme con código</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -333,6 +419,53 @@ export default function Ajustes() {
                 ? 'Los dos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
                 : 'Los dos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
             </Text>
+
+            {familia.role === 'owner' && familia.members.length < 2 && (
+              <View style={styles.bloqueInvitar}>
+                {hayCodigo && msRestantes(familia, ahora) > 0 ? (
+                  <>
+                    <Text style={styles.familiaDetalle}>Código de invitación</Text>
+                    <Text style={styles.codigoGrande} selectable accessibilityLabel={`Código ${familia.invite_code}`}>
+                      {formatearCodigo(familia.invite_code!)}
+                    </Text>
+                    <Text style={styles.familiaDetalle}>
+                      {textoVencimiento(msRestantes(familia, ahora))}. Sirve una sola vez.
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
+                      onPress={copiarOCompartirCodigo}
+                    >
+                      <Text style={styles.botonTexto}>
+                        {Platform.OS === 'web' ? 'Copiar invitación' : 'Compartir invitación'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.botonFamilia, { borderWidth: 2, borderColor: tema.primary }]}
+                      onPress={generarCodigo}
+                      disabled={generandoCodigo}
+                    >
+                      <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar uno nuevo'}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.familiaDetalle}>Al generar uno nuevo, el anterior deja de servir.</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.familiaDetalle}>
+                      {hayCodigo
+                        ? 'El código venció. Generá uno nuevo.'
+                        : 'Para sumar a la otra persona, generá un código y pasaselo. Dura 24 horas y sirve una sola vez.'}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
+                      onPress={generarCodigo}
+                      disabled={generandoCodigo}
+                    >
+                      <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar código de invitación'}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -373,6 +506,59 @@ export default function Ajustes() {
           <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={unirseVisible} transparent animationType="fade" onRequestClose={cerrarUnirse} statusBarTranslucent>
+        <View style={styles.fondoModal}>
+          <View style={styles.tarjetaModal}>
+            <Text style={styles.tituloModal}>Unirme con código</Text>
+            <Text style={styles.textoModal}>
+              Escribí el código que te pasó el titular. Al unirte vas a ver los hijos, documentos y turnos de su familia.
+            </Text>
+            {hijos.length > 0 && (
+              <Text style={styles.avisoModal}>
+                Tu cuenta tiene {hijos.length === 1 ? '1 hijo cargado' : `${hijos.length} hijos cargados`}. Para unirte
+                tenés que borrarlos antes (pestaña Hijos).
+              </Text>
+            )}
+            {conectado === true && (
+              <Text style={styles.avisoModal}>
+                Tu cuenta de Google conectada se va a desconectar: la familia usa la del titular.
+              </Text>
+            )}
+            <TextInput
+              style={[styles.inputModal, styles.inputCodigo]}
+              placeholder="ABC 234"
+              placeholderTextColor="#5F5F5F"
+              value={codigoEscrito}
+              onChangeText={(t) => setCodigoEscrito(normalizarCodigo(t))}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={8}
+              editable={!uniendo}
+              onSubmitEditing={ejecutarUnirse}
+              returnKeyType="done"
+              accessibilityLabel="Código de invitación"
+            />
+            {errorUnirse && <TarjetaError variante="compacta" error={errorUnirse} onReintentar={ejecutarUnirse} />}
+            <View style={styles.filaModal}>
+              <TouchableOpacity
+                style={[styles.botonModal, { borderWidth: 2, borderColor: tema.primary }]}
+                onPress={cerrarUnirse}
+                disabled={uniendo}
+              >
+                <Text style={styles.botonTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.botonModal, { backgroundColor: tema.primary, opacity: codigoCompleto(codigoEscrito) ? 1 : 0.5 }]}
+                onPress={ejecutarUnirse}
+                disabled={uniendo || !codigoCompleto(codigoEscrito)}
+              >
+                <Text style={styles.botonTexto}>{uniendo ? 'Uniéndome…' : 'Unirme'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={claveVisible} transparent animationType="fade" onRequestClose={cerrarFormularioClave} statusBarTranslucent>
         <View style={styles.fondoModal}>
@@ -436,6 +622,9 @@ const styles = StyleSheet.create({
   tarjetaFamilia: { alignSelf: 'stretch', maxWidth: 420, borderWidth: 2, borderRadius: 12, padding: 16, gap: 10 },
   familiaResumen: { fontSize: 16, fontWeight: 'bold', color: '#1F1F1F' },
   familiaDetalle: { fontSize: 14, color: '#3F3F3F' },
+  bloqueInvitar: { gap: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#ddd', paddingTop: 12 },
+  codigoGrande: { fontSize: 34, fontWeight: 'bold', letterSpacing: 6, color: '#1F1F1F' },
+  botonFamilia: { alignSelf: 'stretch', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   filaMiembro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   miembroEmail: { flex: 1, fontSize: 15, color: '#1F1F1F' },
   etiquetaRol: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
@@ -464,6 +653,9 @@ const styles = StyleSheet.create({
   fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 },
   tarjetaModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
   tituloModal: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F', marginBottom: 14 },
+  textoModal: { fontSize: 15, color: '#3F3F3F', marginBottom: 12 },
+  avisoModal: { fontSize: 14, color: '#1F1F1F', fontWeight: '600', marginBottom: 12 },
+  inputCodigo: { textAlign: 'center', fontSize: 24, fontWeight: 'bold', letterSpacing: 4 },
   inputModal: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
   filaModal: { flexDirection: 'row', gap: 12, marginTop: 4 },
   botonModal: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
