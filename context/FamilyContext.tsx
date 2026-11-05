@@ -25,7 +25,8 @@ type FamilyContextType = {
   cargando: boolean;
   // Error de la última carga manual, ya traducido. Las recargas silenciosas no lo tocan.
   error: ErrorAmigable | null;
-  cargarFamilia: () => Promise<void>;
+  // silencioso: no muestra "cargando" ni guarda el error (para recargar al entrar a una pantalla).
+  cargarFamilia: (opciones?: { silencioso?: boolean }) => Promise<void>;
   crearFamilia: () => Promise<Resultado>;
   invitar: () => Promise<Resultado & { codigo?: CodigoInvitacion }>;
   unirse: (codigo: string) => Promise<Resultado>;
@@ -71,6 +72,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         firmaRef.current = firma;
         ultimaLecturaRef.current = Date.now();
         setFamilia(lectura);
+        setError(null); // una lectura buena borra un error anterior
         if (recargarHijos || cambio) await cargarHijos();
       } catch (e) {
         if (numero !== peticionRef.current) return;
@@ -83,7 +85,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [cargarHijos]
   );
 
-  const cargarFamilia = useCallback(() => leer(), [leer]);
+  const cargarFamilia = useCallback(
+    (opciones?: { silencioso?: boolean }) => leer({ silencioso: opciones?.silencioso }),
+    [leer]
+  );
 
   // Con sesión se lee sola; sin sesión no debe quedar nada de la persona anterior.
   // Se usa el id del usuario y no el objeto "session" (Supabase lo renueva seguido).

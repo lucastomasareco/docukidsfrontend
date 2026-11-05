@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { useFocusEffect } from 'expo-router';
 import { conectarGoogleEnWeb, estaEnElectron } from '../../lib/googleWeb';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { TEMAS, TemaId } from '../../context/themes';
 import { api } from '../../lib/api';
 import { useAvisos } from '../../context/AvisosContext';
+import { useFamily } from '../../context/FamilyContext';
 import { TarjetaError } from '../../components/AvisoError';
 import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
@@ -17,6 +19,8 @@ export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
+  const { familia, cargando: cargandoFamilia, error: errorFamilia, cargarFamilia, crearFamilia } = useFamily();
+  const [creandoFamilia, setCreandoFamilia] = useState(false);
   const [conectando, setConectando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   // Formulario "Cambiar contraseña"
@@ -51,6 +55,14 @@ export default function Ajustes() {
   useEffect(() => {
     verificarConexion();
   }, [verificarConexion]);
+
+  // Al entrar a Ajustes se vuelve a leer la familia (no hay sondeo automático).
+  // En silencio: si ya hay datos en pantalla, no parpadean.
+  useFocusEffect(
+    useCallback(() => {
+      cargarFamilia({ silencioso: true });
+    }, [cargarFamilia])
+  );
 
   // Si el usuario vuelve a la app a mano (sin que el navegador se cierre solo),
   // al recuperar el foco volvemos a consultar el estado.
@@ -170,6 +182,18 @@ export default function Ajustes() {
     }
   };
 
+  const ejecutarCrearFamilia = async () => {
+    setCreandoFamilia(true);
+    const { error } = await crearFamilia();
+    setCreandoFamilia(false);
+    if (error) {
+      mostrarError(error, { que: 'crear la familia', onReintentar: ejecutarCrearFamilia });
+      cargarFamilia({ silencioso: true }); // por si el error fue "ya formás parte de una familia"
+      return;
+    }
+    mostrarAviso('Familia creada', 'Ahora sos el titular de tu familia.', { icono: 'checkmark-circle-outline' });
+  };
+
   const cerrarFormularioClave = () => {
     setClaveVisible(false);
     setClaveActual('');
@@ -262,7 +286,56 @@ export default function Ajustes() {
           </Text>
         </TouchableOpacity>
         <Text style={styles.ayuda}>Necesario para subir documentos, agendar turnos y recibir avisos por email.</Text>
-        
+
+        <View style={styles.separador} />
+        <Text style={styles.tituloSeccion}>Familia</Text>
+        <Text style={styles.subtituloSeccion}>Compartí todo con otra persona</Text>
+
+        {familia === null && cargandoFamilia ? (
+          <Text style={styles.estadoGoogle}>Familia: comprobando…</Text>
+        ) : familia === null && errorFamilia ? (
+          <View style={{ alignSelf: 'stretch' }}>
+            <TarjetaError variante="compacta" error={errorFamilia} onReintentar={() => cargarFamilia()} />
+          </View>
+        ) : familia === null ? (
+          <>
+            <Text style={styles.ayudaAncha}>
+              Una familia es de hasta 2 personas (por ejemplo, madre y padre) que ven los mismos hijos, documentos y
+              turnos. Quien la crea es el titular: se usa su cuenta de Google.
+            </Text>
+            <TouchableOpacity
+              style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
+              onPress={ejecutarCrearFamilia}
+              disabled={creandoFamilia}
+            >
+              <Text style={styles.botonTexto}>{creandoFamilia ? 'Creando…' : 'Crear familia'}</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={[styles.tarjetaFamilia, { backgroundColor: tema.card, borderColor: tema.primary }]}>
+            <Text style={styles.familiaResumen}>
+              {familia.role === 'owner' ? 'Sos el titular de la familia' : 'Sos miembro de la familia'}
+            </Text>
+            <Text style={styles.familiaDetalle}>{familia.members.length} de 2 personas</Text>
+            {familia.members.map((m) => (
+              <View key={m.id} style={styles.filaMiembro}>
+                <Text style={styles.miembroEmail} numberOfLines={1}>
+                  {m.email}
+                  {m.id === session?.user.id ? ' (vos)' : ''}
+                </Text>
+                <View style={[styles.etiquetaRol, { backgroundColor: tema.primary }]}>
+                  <Text style={styles.etiquetaRolTexto}>{m.role === 'owner' ? 'Titular' : 'Miembro'}</Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.familiaDetalle}>
+              {familia.role === 'owner'
+                ? 'Los dos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
+                : 'Los dos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.separador} />
         <Text style={styles.tituloSeccion}>Apariencia</Text>
         <Text style={styles.subtituloSeccion}>Elegí los colores de la app</Text>
@@ -359,9 +432,17 @@ const styles = StyleSheet.create({
   estadoGoogle: { fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   ayuda: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', maxWidth: 260, marginTop: -8 },
+  ayudaAncha: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', maxWidth: 340, marginTop: -4 },
+  tarjetaFamilia: { alignSelf: 'stretch', maxWidth: 420, borderWidth: 2, borderRadius: 12, padding: 16, gap: 10 },
+  familiaResumen: { fontSize: 16, fontWeight: 'bold', color: '#1F1F1F' },
+  familiaDetalle: { fontSize: 14, color: '#3F3F3F' },
+  filaMiembro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  miembroEmail: { flex: 1, fontSize: 15, color: '#1F1F1F' },
+  etiquetaRol: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  etiquetaRolTexto: { fontSize: 13, fontWeight: 'bold', color: '#1F1F1F' },
   separador: { width: '100%', height: 1, backgroundColor: '#eee', marginVertical: 8 },
   tituloSeccion: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F' },
-  subtituloSeccion: { fontSize: 15, color: '#3F3F3F', marginTop: -12 },
+  subtituloSeccion: { fontSize: 15, color: '#3F3F3F', marginTop: -12, textAlign: 'center' },
   filaTemas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 20, marginTop: 4 },
   opcionTema: { alignItems: 'center', width: 72 },
   circuloTema: {
