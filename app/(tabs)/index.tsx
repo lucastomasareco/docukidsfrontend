@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient'; // <-- IMPORT AGREGADO
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 import { useChildren } from '../../context/ChildrenContext';
+import { useFamily } from '../../context/FamilyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAvisos } from '../../context/AvisosContext';
@@ -125,6 +126,9 @@ export default function Docs() {
 
   // null = todavía no sabemos (evita el "flash" del botón); true/false = confirmado.
   const [googleConectado, setGoogleConectado] = useState<boolean | null>(null);
+  // Un miembro de familia usa el Google del titular: no se le ofrece conectar el suyo.
+  const { familia, cargando: cargandoFamilia } = useFamily();
+  const esMiembro = familia?.role === 'member';
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
 
   // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista
@@ -273,6 +277,8 @@ export default function Docs() {
   // "Permitir" en su propia pantalla; esto solo le ahorra buscar el botón.
   useEffect(() => {
     if (googleConectado !== false || !usuarioId || conectandoGoogle) return;
+    // Hasta saber si es miembro, no se ofrece nada (si no, un miembro vería la oferta un instante).
+    if (cargandoFamilia || esMiembro) return;
     if (avisoGoogleParaUsuario === usuarioId) return;
     avisoGoogleParaUsuario = usuarioId;
     confirmar({
@@ -286,7 +292,7 @@ export default function Docs() {
       if (acepto) conectarGoogle();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleConectado, usuarioId, conectandoGoogle]);
+  }, [googleConectado, usuarioId, conectandoGoogle, cargandoFamilia, esMiembro]);
 
   const cargarDocumentos = useCallback(async () => {
     if (!seleccionadoId) {
@@ -763,18 +769,26 @@ export default function Docs() {
 
       {!mostrarFormulario && googleConectado === false && (
         <View style={styles.bloqueGoogle}>
-          <TouchableOpacity
-            style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
-            onPress={conectarGoogle}
-            disabled={conectandoGoogle}
-          >
-            <Text style={styles.botonGoogleTexto}>
-              {conectandoGoogle ? 'Conectando...' : 'Conectar con Google'}
+          {esMiembro ? (
+            <Text style={styles.ayudaGoogle}>
+              Tu familia usa la cuenta de Google del titular y todavía no la conectó. Pedile que la conecte desde Ajustes para poder subir documentos y agendar turnos.
             </Text>
-          </TouchableOpacity>
-          <Text style={styles.ayudaGoogle}>
-            Necesario para subir documentos, agendar turnos y recibir avisos por email.
-          </Text>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
+                onPress={conectarGoogle}
+                disabled={conectandoGoogle}
+              >
+                <Text style={styles.botonGoogleTexto}>
+                  {conectandoGoogle ? 'Conectando...' : 'Conectar con Google'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.ayudaGoogle}>
+                Necesario para subir documentos, agendar turnos y recibir avisos por email.
+              </Text>
+            </>
+          )}
         </View>
       )}
 

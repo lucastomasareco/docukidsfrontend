@@ -2,18 +2,20 @@ import { ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
+import { useFamily } from '../context/FamilyContext';
 import { AvisosContext, AvisosContextType, OpcionesConfirmar } from '../context/AvisosContext';
-import { ErrorAmigable, interpretarError } from '../lib/errores';
+import { adaptarParaMiembro, ErrorAmigable, interpretarError } from '../lib/errores';
 import { Aviso, AvisoFlotante, ICONO_POR_TIPO, tieneBoton } from './AvisoError';
 import VentanaConfirmar from './VentanaConfirmar';
 
-// Va en app/_layout.tsx, DENTRO de AuthProvider y ThemeProvider.
+// Va en app/_layout.tsx, DENTRO de AuthProvider, ThemeProvider y FamilyProvider.
 // Dibuja por encima de todas las pantallas:
 //   - el aviso que baja desde arriba (errores de acciones y avisos cortos)
 //   - la ventana de confirmación
 export default function AvisosProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { cerrarSesion } = useAuth();
+  const { familia } = useFamily();
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [confirmacion, setConfirmacion] = useState<OpcionesConfirmar | null>(null);
   const resolverConfirmacion = useRef<((valor: boolean) => void) | null>(null);
@@ -25,6 +27,9 @@ export default function AvisosProvider({ children }: { children: ReactNode }) {
   // recargaría sola una y otra vez.
   const vivo = useRef({ router, cerrarSesion });
   vivo.current = { router, cerrarSesion };
+  // Igual que arriba: el rol va en una referencia para que mostrarError siga siendo estable.
+  const esMiembroRef = useRef(false);
+  esMiembroRef.current = familia?.role === 'member';
 
   const ejecutarAccion = useCallback((error: ErrorAmigable, onReintentar?: () => void) => {
     if (error.accion === 'reintentar') onReintentar?.();
@@ -34,7 +39,8 @@ export default function AvisosProvider({ children }: { children: ReactNode }) {
 
   const mostrarError = useCallback<AvisosContextType['mostrarError']>(
     (e, opciones = {}) => {
-      const error = interpretarError(e, opciones.que);
+      const traducido = interpretarError(e, opciones.que);
+      const error = esMiembroRef.current ? adaptarParaMiembro(traducido) : traducido;
       const conBoton = tieneBoton(error, Boolean(opciones.onReintentar));
       setAviso({
         id: ++contador.current,

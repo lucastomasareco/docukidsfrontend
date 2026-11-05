@@ -74,6 +74,18 @@ export function esErrorAmigable(x: any): x is ErrorAmigable {
   );
 }
 
+// Para un MIEMBRO de familia: solo el titular puede conectar Google, así que el aviso
+// "Google desconectado" no lo manda a Ajustes (no puede arreglarlo): le dice que se lo pida.
+// Cualquier otro error queda igual.
+export function adaptarParaMiembro(error: ErrorAmigable): ErrorAmigable {
+  if (error.tipo !== 'google_desconectado') return error;
+  return armar(
+    'google_desconectado',
+    'Google desconectado',
+    'La cuenta de Google de tu familia no está conectada. Pedile al titular que la conecte desde Ajustes.'
+  );
+}
+
 // "que" es lo que se estaba intentando, con verbo en infinitivo y sin "No se pudo":
 // por ejemplo "subir el documento" o "cargar los turnos". Se usa en el título
 // de los errores genéricos: "No se pudo subir el documento".

@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAvisos } from '../context/AvisosContext';
-import { ErrorAmigable, TipoError } from '../lib/errores';
+import { useFamily } from '../context/FamilyContext';
+import { adaptarParaMiembro, ErrorAmigable, TipoError } from '../lib/errores';
 
 export type NombreIcono = ComponentProps<typeof Ionicons>['name'];
 
@@ -77,8 +78,11 @@ type PropsTarjeta = {
   variante?: 'grande' | 'compacta';
 };
 
-export function TarjetaError({ error, onReintentar, variante = 'grande' }: PropsTarjeta) {
+export function TarjetaError({ error: errorOriginal, onReintentar, variante = 'grande' }: PropsTarjeta) {
   const { tema } = useTheme();
+  const { familia } = useFamily();
+  // Un miembro no puede conectar Google: se le dice que se lo pida al titular.
+  const error = familia?.role === 'member' ? adaptarParaMiembro(errorOriginal) : errorOriginal;
   const { ejecutarAccion } = useAvisos();
   const latido = useLatido(error.tipo === 'servidor_despertando');
   const conBoton = tieneBoton(error, Boolean(onReintentar));

@@ -15,15 +15,20 @@ import { useChildren } from '../../context/ChildrenContext';
 import { TarjetaError } from '../../components/AvisoError';
 import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
-import { codigoCompleto, formatearCodigo, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
+import { codigoCompleto, formatearCodigo, mensajeEliminarCuenta, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
 import { copiarTexto } from '../../lib/portapapeles';
 
 export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
   const { temaId, tema, cambiarTema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
-  const { familia, cargando: cargandoFamilia, error: errorFamilia, cargarFamilia, crearFamilia, invitar, unirse } = useFamily();
+  const { familia, cargando: cargandoFamilia, error: errorFamilia, cargarFamilia, crearFamilia, invitar, unirse, salir, quitarMiembro, disolver } =
+    useFamily();
+  // true mientras corre salir / quitar / disolver (deshabilita esos botones).
+  const [ocupadoFamilia, setOcupadoFamilia] = useState(false);
   const { hijos } = useChildren();
+  // Un miembro no conecta Google: usa el del titular (el backend le devuelve el estado del titular).
+  const esMiembro = familia?.role === 'member';
   // Ventana "Unirme con código"
   const [unirseVisible, setUnirseVisible] = useState(false);
   const [codigoEscrito, setCodigoEscrito] = useState('');
@@ -272,6 +277,99 @@ export default function Ajustes() {
     });
   };
 
+  // Corre una acción de familia (salir / quitar / disolver) y muestra el resultado.
+  // Si falla, además relee la familia: el error suele venir de que algo ya cambió
+  // (por ejemplo, "ya no formás parte de ninguna familia").
+  const correrAccionFamilia = async (
+    accion: () => Promise<{ error: unknown | null }>,
+    que: string,
+    exito: { titulo: string; mensaje: string },
+    reintentar: () => void
+  ): Promise<boolean> => {
+    setOcupadoFamilia(true);
+    const { error } = await accion();
+    setOcupadoFamilia(false);
+    if (error) {
+      mostrarError(error, { que, onReintentar: reintentar });
+      cargarFamilia({ silencioso: true });
+      return false;
+    }
+    mostrarAviso(exito.titulo, exito.mensaje, { icono: 'checkmark-circle-outline' });
+    return true;
+  };
+
+  const ejecutarSalirFamilia = async () => {
+    const ok = await correrAccionFamilia(
+      salir,
+      'salir de la familia',
+      { titulo: 'Saliste de la familia', mensaje: 'Tu cuenta quedó vacía. Podés crear una familia o unirte a otra.' },
+      ejecutarSalirFamilia
+    );
+    // Ya no vale el Google del titular: se vuelve a preguntar por el tuyo.
+    if (ok) verificarConexion();
+  };
+
+  const confirmarSalirFamilia = async () => {
+    const seguro = await confirmar({
+      titulo: '¿Salir de la familia?',
+      mensaje:
+        'Dejarás de ver los hijos, documentos y turnos del titular. Tu cuenta quedará vacía: no se copia nada.\n\n' +
+        'Para volver a unirte vas a necesitar un código nuevo, y tu cuenta tendrá que estar sin hijos.',
+      textoConfirmar: 'Salir de la familia',
+      peligro: true,
+      icono: 'exit-outline',
+    });
+    if (seguro) await ejecutarSalirFamilia();
+  };
+
+  const ejecutarQuitarMiembro = async (id: string, email: string) => {
+    await correrAccionFamilia(
+      () => quitarMiembro(id),
+      'quitar a esa persona',
+      { titulo: 'Persona quitada', mensaje: `${email} ya no forma parte de tu familia.` },
+      () => ejecutarQuitarMiembro(id, email)
+    );
+  };
+
+  const confirmarQuitarMiembro = async (id: string, email: string) => {
+    const seguro = await confirmar({
+      titulo: `¿Quitar a ${email}?`,
+      mensaje:
+        'Dejará de ver los hijos, documentos y turnos. Su cuenta quedará vacía: no se le copia nada. ' +
+        'Tus datos no se tocan.\n\n' +
+        'La familia sigue: podés generar un código para invitar a otra persona.',
+      textoConfirmar: 'Quitar',
+      peligro: true,
+      icono: 'person-remove-outline',
+    });
+    if (seguro) await ejecutarQuitarMiembro(id, email);
+  };
+
+  const ejecutarDisolverFamilia = async () => {
+    await correrAccionFamilia(
+      disolver,
+      'disolver la familia',
+      { titulo: 'Familia disuelta', mensaje: 'Tus hijos, documentos y turnos siguen en tu cuenta.' },
+      ejecutarDisolverFamilia
+    );
+  };
+
+  const confirmarDisolverFamilia = async () => {
+    const otro = familia?.members.find((m) => m.role === 'member');
+    const seguro = await confirmar({
+      titulo: '¿Disolver la familia?',
+      mensaje:
+        (otro
+          ? `${otro.email} dejará de ver los hijos, documentos y turnos y quedará con la cuenta vacía.\n\n`
+          : '') +
+        'Tus hijos, documentos y turnos siguen en tu cuenta. Después podés crear una familia nueva.',
+      textoConfirmar: 'Disolver familia',
+      peligro: true,
+      icono: 'warning-outline',
+    });
+    if (seguro) await ejecutarDisolverFamilia();
+  };
+
   const cerrarFormularioClave = () => {
     setClaveVisible(false);
     setClaveActual('');
@@ -327,12 +425,7 @@ export default function Ajustes() {
   const confirmarEliminarCuenta = async () => {
     const seguro = await confirmar({
       titulo: '¿Eliminar tu cuenta?',
-      mensaje:
-        'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
-        'Esto no se puede deshacer.\n\n' +
-        'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
-        'Los eventos de Google Calendar tampoco. ' +
-        'Dejarás de recibir avisos por email.',
+      mensaje: mensajeEliminarCuenta(familia),
       textoConfirmar: 'Eliminar cuenta',
       peligro: true,
       icono: 'warning-outline',
@@ -351,19 +444,33 @@ export default function Ajustes() {
           </View>
         ) : (
           <Text style={styles.estadoGoogle}>
-            {conectado === null ? 'Google: comprobando…' : conectado ? 'Google: ✅ Conectado' : 'Google: ⚠️ No conectado'}
+            {conectado === null
+              ? `${esMiembro ? 'Google del titular' : 'Google'}: comprobando…`
+              : conectado
+                ? `${esMiembro ? 'Google del titular' : 'Google'}: ✅ Conectado`
+                : `${esMiembro ? 'Google del titular' : 'Google'}: ⚠️ No conectado`}
           </Text>
         )}
-        <TouchableOpacity
-          style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
-          onPress={conectarGoogle}
-          disabled={conectando}
-        >
-          <Text style={styles.botonTexto}>
-            {conectando ? 'Conectando...' : conectado ? 'Reconectar con Google' : 'Conectar con Google'}
+        {esMiembro ? (
+          <Text style={styles.ayudaAncha}>
+            {conectado === false
+              ? 'Tu familia usa la cuenta de Google del titular, y todavía no la conectó. Pedile que lo haga desde Ajustes: hasta entonces no se pueden subir documentos ni agendar turnos.'
+              : 'Tu familia usa la cuenta de Google del titular. Solo el titular puede conectarla o reconectarla.'}
           </Text>
-        </TouchableOpacity>
-        <Text style={styles.ayuda}>Necesario para subir documentos, agendar turnos y recibir avisos por email.</Text>
+        ) : (
+          <>
+          <TouchableOpacity
+            style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
+            onPress={conectarGoogle}
+            disabled={conectando}
+          >
+            <Text style={styles.botonTexto}>
+              {conectando ? 'Conectando...' : conectado ? 'Reconectar con Google' : 'Conectar con Google'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.ayuda}>Necesario para subir documentos, agendar turnos y recibir avisos por email.</Text>
+          </>
+        )}
 
         <View style={styles.separador} />
         <Text style={styles.tituloSeccion}>Familia</Text>
@@ -412,6 +519,16 @@ export default function Ajustes() {
                 <View style={[styles.etiquetaRol, { backgroundColor: tema.primary }]}>
                   <Text style={styles.etiquetaRolTexto}>{m.role === 'owner' ? 'Titular' : 'Miembro'}</Text>
                 </View>
+                {familia.role === 'owner' && m.role === 'member' && (
+                  <TouchableOpacity
+                    style={styles.botonQuitar}
+                    onPress={() => confirmarQuitarMiembro(m.id, m.email)}
+                    disabled={ocupadoFamilia}
+                    accessibilityLabel={`Quitar a ${m.email}`}
+                  >
+                    <Text style={styles.botonQuitarTexto}>Quitar</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
             <Text style={styles.familiaDetalle}>
@@ -465,6 +582,24 @@ export default function Ajustes() {
                   </>
                 )}
               </View>
+            )}
+
+            {familia.role === 'member' ? (
+              <TouchableOpacity
+                style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
+                onPress={confirmarSalirFamilia}
+                disabled={ocupadoFamilia}
+              >
+                <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Saliendo…' : 'Salir de la familia'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
+                onPress={confirmarDisolverFamilia}
+                disabled={ocupadoFamilia}
+              >
+                <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Un momento…' : 'Disolver familia'}</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -625,6 +760,9 @@ const styles = StyleSheet.create({
   bloqueInvitar: { gap: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#ddd', paddingTop: 12 },
   codigoGrande: { fontSize: 34, fontWeight: 'bold', letterSpacing: 6, color: '#1F1F1F' },
   botonFamilia: { alignSelf: 'stretch', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  // Rojo fijo (#c62828): acciones destructivas de familia.
+  botonQuitar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  botonQuitarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 13 },
   filaMiembro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   miembroEmail: { flex: 1, fontSize: 15, color: '#1F1F1F' },
   etiquetaRol: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },

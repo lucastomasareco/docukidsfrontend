@@ -130,3 +130,32 @@ export function textoInvitacion(codigo: string, venceIso: string | undefined): s
     `. Abrí Ajustes → Familia → "Unirme con código" y escribilo.`
   );
 }
+
+// Texto de la confirmación de "Eliminar cuenta", según el rol (Guía §12):
+//  - titular: la familia se disuelve y el miembro queda con la cuenta vacía;
+//  - miembro: solo sale; los datos del titular no se tocan.
+// Si todavía no se sabe la familia (null), el texto de siempre.
+export function mensajeEliminarCuenta(familia: Familia | null): string {
+  if (familia?.role === 'member') {
+    return (
+      'Saldrás de la familia y se borrará tu usuario. ' +
+      'Los hijos, documentos y turnos son del titular: no se tocan.\n\n' +
+      'Esto no se puede deshacer.'
+    );
+  }
+  const otro = familia?.members.find((m) => m.role === 'member');
+  const sobreFamilia =
+    familia?.role === 'owner'
+      ? otro
+        ? `Como sos el titular, tu familia se disuelve: ${otro.email} se queda con la cuenta vacía y ya no verá nada de esto.\n\n`
+        : 'Tu familia también se disuelve.\n\n'
+      : '';
+  return (
+    'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
+    'Esto no se puede deshacer.\n\n' +
+    sobreFamilia +
+    'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
+    'Los eventos de Google Calendar tampoco. ' +
+    'Dejarás de recibir avisos por email.'
+  );
+}
