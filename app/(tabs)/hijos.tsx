@@ -18,6 +18,7 @@ import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
 import FormularioSuperior from '../../components/FormularioSuperior';
+import TarjetaRecuperarDatos from '../../components/TarjetaRecuperarDatos';
 import { colorConOpacidad } from '../../lib/fechas';
 
 // Para comparar nombres: sin mayúsculas, sin tildes y sin espacios de más.
@@ -180,6 +181,9 @@ export default function Hijos() {
       end={{ x: 1, y: 1 }} 
       style={styles.container}
     >
+
+      {/* Solo aparece si en tu Drive quedaron carpetas de una cuenta anterior. */}
+      {!mostrarFormulario && <TarjetaRecuperarDatos />}
 
       {!mostrarFormulario && (
         <TouchableOpacity

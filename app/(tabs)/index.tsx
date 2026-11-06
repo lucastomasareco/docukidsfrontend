@@ -26,6 +26,7 @@ import { useAvisos } from '../../context/AvisosContext';
 import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
+import TarjetaRecuperarDatos from '../../components/TarjetaRecuperarDatos';
 import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
@@ -749,6 +750,7 @@ export default function Docs() {
         end={{ x: 1, y: 1 }}
         style={[styles.container, { justifyContent: 'center' }]}
       >
+        <TarjetaRecuperarDatos />
         <EstadoVacio
           icono="people-outline"
           titulo="Todavía no cargaste ningún hijo"
