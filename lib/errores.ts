@@ -220,7 +220,13 @@ export function interpretarError(e: any, que = 'completar la acción'): ErrorAmi
   if (estado === 422) {
     return armar('datos_invalidos', 'Revisá los datos', 'Algo de lo que cargaste no es válido. Corregilo e intentá de nuevo.');
   }
-  // 502/503/504: Render suele contestar así mientras el servidor arranca.
+  // 502/503/504 con un "detail" en JSON: lo mandó NUESTRO backend a propósito (por ejemplo,
+  // "No se pudieron mover tus archivos de Drive..."), el servidor está despierto. Se muestra el
+  // motivo real, no "está despertando", o la persona reintenta sin fin sin saber qué pasa.
+  if ((estado === 502 || estado === 503 || estado === 504) && detalleDe(e).trim() !== '') {
+    return armar('servidor', `No se pudo ${que}`, detalleDe(e), 'reintentar', 'Reintentar');
+  }
+  // 502/503/504 sin "detail": Render suele contestar así (con HTML) mientras el servidor arranca.
   if (estado === 502 || estado === 503 || estado === 504) {
     return armar(
       'servidor_despertando',

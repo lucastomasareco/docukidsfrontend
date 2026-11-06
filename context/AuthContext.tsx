@@ -123,8 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Si sale bien, cerramos la sesión SOLO en este teléfono (scope local):
   // el usuario ya no existe en Supabase, así que no hay nada que avisarle al servidor.
   const eliminarCuenta = async (borrarDrive: boolean = false) => {
+    // El borrado NO se reintenta solo (para no borrar dos veces) y toca Google, así que no puede
+    // ser el pedido que despierte al servidor gratuito: se lo despierta ANTES con una llamada
+    // liviana (si falla no importa, el borrado de abajo informa su propio error) y se le da
+    // más tiempo que a una lectura común.
     try {
-      await api.delete('/account', { params: { delete_drive: borrarDrive } });
+      await api.get('/', { timeout: 90000 });
+    } catch {}
+    try {
+      await api.delete('/account', { params: { delete_drive: borrarDrive }, timeout: 120000 });
     } catch (e) {
       return { error: e ?? new Error('Error desconocido') };
     }
