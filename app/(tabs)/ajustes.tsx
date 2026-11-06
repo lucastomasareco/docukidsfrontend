@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform, Share } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform, Share, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useFocusEffect } from 'expo-router';
@@ -256,6 +257,12 @@ export default function Ajustes() {
     setUnirseVisible(false);
     setCodigoEscrito('');
     setErrorUnirse(null);
+  };
+
+  // Cerrar tocando afuera o con la X: no se permite mientras se está procesando la unión,
+  // para no perder de vista el resultado.
+  const cerrarUnirseSiLibre = () => {
+    if (!uniendo) cerrarUnirse();
   };
 
   const ejecutarUnirse = async () => {
@@ -680,10 +687,23 @@ export default function Ajustes() {
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={unirseVisible} transparent animationType="fade" onRequestClose={cerrarUnirse} statusBarTranslucent>
-        <View style={styles.fondoModal}>
-          <View style={styles.tarjetaModal}>
-            <Text style={styles.tituloModal}>Unirme con código</Text>
+      <Modal visible={unirseVisible} transparent animationType="fade" onRequestClose={cerrarUnirseSiLibre} statusBarTranslucent>
+        {/* Tocar el fondo oscuro cierra la ventana; el Pressable interior frena el toque
+            para que tocar la tarjeta (o escribir el código) no la cierre. */}
+        <Pressable style={styles.fondoModal} onPress={cerrarUnirseSiLibre} accessibilityLabel="Cerrar la ventana">
+          <Pressable style={styles.tarjetaModal} onPress={() => {}}>
+            <TouchableOpacity
+              style={[styles.botonCerrarModal, { backgroundColor: tema.primary }]}
+              onPress={cerrarUnirseSiLibre}
+              disabled={uniendo}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <Ionicons name="close" size={22} color="#1F1F1F" />
+            </TouchableOpacity>
+            <Text style={[styles.tituloModal, styles.tituloConCerrar]}>Unirme con código</Text>
             <Text style={styles.textoModal}>
               Escribí el código que te pasó el titular. Al unirte vas a ver los hijos, documentos y turnos de su familia.
             </Text>
@@ -729,8 +749,8 @@ export default function Ajustes() {
                 <Text style={styles.botonTexto}>{uniendo ? 'Uniéndome…' : 'Unirme'}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <Modal visible={claveVisible} transparent animationType="fade" onRequestClose={cerrarFormularioClave} statusBarTranslucent>
@@ -836,6 +856,9 @@ const styles = StyleSheet.create({
   fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 },
   tarjetaModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
   tituloModal: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F', marginBottom: 14 },
+  // Deja lugar a la X de la esquina para que el título no quede debajo.
+  tituloConCerrar: { paddingRight: 44 },
+  botonCerrarModal: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   textoModal: { fontSize: 15, color: '#3F3F3F', marginBottom: 12 },
   avisoModal: { fontSize: 14, color: '#1F1F1F', fontWeight: '600', marginBottom: 12 },
   inputCodigo: { textAlign: 'center', fontSize: 24, fontWeight: 'bold', letterSpacing: 4 },
