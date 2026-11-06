@@ -3,6 +3,7 @@
 // El backend las encuentra (GET /drive/recover/preview) y las vincula a hijos NUEVOS
 // (POST /drive/recover) en vez de crear carpetas paralelas.
 import { api } from './api';
+import { supabase } from './supabase';
 import { migrarDriveEnSegundoPlano } from './migrarDrive';
 
 // Un hijo que la persona YA tiene con el mismo nombre que la carpeta vieja.
@@ -30,13 +31,29 @@ export type ResultadoRecuperar = {
 // El backend acepta hasta 20 carpetas por pedido.
 const MAX_POR_PEDIDO = 20;
 
+// Revisar el Drive es lento (el servidor gratuito hace muchas consultas a Google), así que el
+// resultado BUENO se recuerda 5 minutos por persona: pasar de pestaña no vuelve a escanear todo.
+// Los errores NO se recuerdan (si Google no estaba conectado, al conectarlo se vuelve a buscar).
+const VIGENCIA_MS = 5 * 60 * 1000;
+let recuerdo: { usuario: string; hora: number; lista: CarpetaRecuperable[] } | null = null;
+
 // Busca carpetas recuperables. SILENCIOSA: si Google no está conectado, no hay internet o
 // el servidor está despertando, simplemente no hay nada que ofrecer (devuelve []).
-export async function buscarCarpetasRecuperables(): Promise<CarpetaRecuperable[]> {
+// forzar=true ignora lo recordado (se usa justo después de recuperar).
+export async function buscarCarpetasRecuperables(forzar = false): Promise<CarpetaRecuperable[]> {
   try {
+    const { data } = await supabase.auth.getSession();
+    const usuario = data.session?.user?.id ?? '';
+    if (!forzar && recuerdo && recuerdo.usuario === usuario && Date.now() - recuerdo.hora < VIGENCIA_MS) {
+      return recuerdo.lista;
+    }
     const respuesta = await api.get('/drive/recover/preview');
     const lista = respuesta.data?.candidates;
-    return Array.isArray(lista) ? lista.map((c) => ({ ...c, match: c.match ?? null })) : [];
+    const resultado: CarpetaRecuperable[] = Array.isArray(lista)
+      ? lista.map((c) => ({ ...c, match: c.match ?? null }))
+      : [];
+    recuerdo = { usuario, hora: Date.now(), lista: resultado };
+    return resultado;
   } catch {
     return [];
   }

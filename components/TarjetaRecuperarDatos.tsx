@@ -72,7 +72,7 @@ export default function TarjetaRecuperarDatos() {
     try {
       const r = await recuperarCarpetas(Array.from(elegidas));
       await cargarHijos();
-      setCandidatas(await buscarCarpetasRecuperables());
+      setCandidatas(await buscarCarpetasRecuperables(true));
       setElegidas(new Set());
       mostrarAviso(
         'Datos recuperados',
@@ -84,7 +84,7 @@ export default function TarjetaRecuperarDatos() {
     } catch (e) {
       // Lo ya recuperado quedó guardado: se refresca la lista y se puede reintentar sin duplicar.
       await cargarHijos();
-      setCandidatas(await buscarCarpetasRecuperables());
+      setCandidatas(await buscarCarpetasRecuperables(true));
       mostrarError(e, { que: 'recuperar tus datos', onReintentar: recuperar });
     } finally {
       setRecuperando(false);
