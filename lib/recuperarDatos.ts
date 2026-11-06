@@ -5,16 +5,24 @@
 import { api } from './api';
 import { migrarDriveEnSegundoPlano } from './migrarDrive';
 
+// Un hijo que la persona YA tiene con el mismo nombre que la carpeta vieja.
+//  - puede_vincular = true:  se le vincula la carpeta vieja (no se crea un hijo repetido).
+//  - puede_vincular = false: ya tiene archivos propios en Drive; para no mezclar nada, la
+//    carpeta vieja se recupera como un perfil aparte ("Nombre - recuperado").
+export type CoincidenciaHijo = { child_id: number; name: string; can_link: boolean };
+
 export type CarpetaRecuperable = {
   drive_folder_id: string;
   name: string;
   old_child_id: number;
   documents: number;
   folders: string[];
+  match: CoincidenciaHijo | null;
 };
 
 export type ResultadoRecuperar = {
   hijos: number;
+  vinculados: number; // cuántos de `hijos` ya existían y recibieron su carpeta vieja
   documentos: number;
   omitidas: number;
 };
@@ -28,7 +36,7 @@ export async function buscarCarpetasRecuperables(): Promise<CarpetaRecuperable[]
   try {
     const respuesta = await api.get('/drive/recover/preview');
     const lista = respuesta.data?.candidates;
-    return Array.isArray(lista) ? lista : [];
+    return Array.isArray(lista) ? lista.map((c) => ({ ...c, match: c.match ?? null })) : [];
   } catch {
     return [];
   }
@@ -38,13 +46,14 @@ export async function buscarCarpetasRecuperables(): Promise<CarpetaRecuperable[]
 // muestra) y lo ya recuperado queda guardado: se puede reintentar sin duplicar.
 // Al final ordena los archivos (renombra con los IDs nuevos) llamando a /drive/migrate.
 export async function recuperarCarpetas(ids: string[]): Promise<ResultadoRecuperar> {
-  const total: ResultadoRecuperar = { hijos: 0, documentos: 0, omitidas: 0 };
+  const total: ResultadoRecuperar = { hijos: 0, vinculados: 0, documentos: 0, omitidas: 0 };
   const sinRepetir = Array.from(new Set(ids));
   for (let i = 0; i < sinRepetir.length; i += MAX_POR_PEDIDO) {
     const respuesta = await api.post('/drive/recover', {
       folders: sinRepetir.slice(i, i + MAX_POR_PEDIDO),
     });
     total.hijos += respuesta.data?.recovered?.length ?? 0;
+    total.vinculados += Number(respuesta.data?.linked ?? 0);
     total.documentos += Number(respuesta.data?.documents ?? 0);
     total.omitidas += Number(respuesta.data?.skipped ?? 0);
   }

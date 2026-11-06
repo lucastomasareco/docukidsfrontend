@@ -76,8 +76,9 @@ export default function TarjetaRecuperarDatos() {
       setElegidas(new Set());
       mostrarAviso(
         'Datos recuperados',
-        `Recuperaste ${r.hijos} ${r.hijos === 1 ? 'hijo' : 'hijos'} y ${textoDocumentos(r.documentos)}. ` +
-          'Las fechas de vencimiento hay que volver a cargarlas.',
+        `Recuperaste ${r.hijos} ${r.hijos === 1 ? 'hijo' : 'hijos'} y ${textoDocumentos(r.documentos)}` +
+          (r.vinculados > 0 ? ` (${r.vinculados} vinculado${r.vinculados === 1 ? '' : 's'} a un perfil que ya tenías)` : '') +
+          '. Las fechas de vencimiento hay que volver a cargarlas.',
         { icono: 'checkmark-circle-outline', duracion: 9000 }
       );
     } catch (e) {
@@ -131,6 +132,13 @@ export default function TarjetaRecuperarDatos() {
                 {textoDocumentos(c.documents)}
                 {c.folders.length > 0 ? ` · ${c.folders.join(', ')}` : ''}
               </Text>
+              {c.match && (
+                <Text style={styles.nota}>
+                  {c.match.can_link
+                    ? `Ya tenés a «${c.match.name}»: se vincula a ese perfil, sin crear uno repetido.`
+                    : `Ya tenés a «${c.match.name}» con archivos propios: esto se recupera como «${c.name} - recuperado», sin mezclar nada.`}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         );
@@ -184,6 +192,7 @@ const styles = StyleSheet.create({
   filaTextos: { flex: 1 },
   nombre: { fontSize: 18, fontWeight: 'bold', color: TEXTO },
   detalle: { fontSize: 15, color: TEXTO_SUAVE, marginTop: 2 },
+  nota: { fontSize: 15, lineHeight: 21, color: TEXTO, marginTop: 4, fontStyle: 'italic' },
   boton: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 3, alignItems: 'center' },
   botonApagado: { opacity: 0.5 },
   espera: { flexDirection: 'row', alignItems: 'center', gap: 10 },
