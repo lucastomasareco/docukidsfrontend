@@ -769,6 +769,9 @@ export default function Docs() {
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <SelectorHijo />
 
+      {/* Solo aparece si en tu Drive (o su papelera) quedaron carpetas de una cuenta anterior. */}
+      {!mostrarFormulario && <TarjetaRecuperarDatos />}
+
       {!mostrarFormulario && googleConectado === false && (
         <View style={styles.bloqueGoogle}>
           {esMiembro ? (

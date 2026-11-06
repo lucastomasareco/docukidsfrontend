@@ -429,7 +429,7 @@ export default function Ajustes() {
     mostrarAviso(
       'Cuenta eliminada',
       mandarAPapelera
-        ? 'Tus datos de Docukids se borraron y la carpeta Docukids de tu Drive está en la papelera: podés recuperarla ahí durante unos 30 días. Los eventos de Calendar siguen en tu cuenta de Google.'
+        ? 'Tus datos de Docukids se borraron y la carpeta Docukids de tu Drive está en la papelera. Si volvés a registrarte y conectás Google con la misma cuenta, Docukids te ofrece recuperarla (hasta unos 30 días). Los eventos de Calendar siguen en tu cuenta de Google.'
         : 'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.',
       { icono: 'checkmark-circle-outline', duracion: 10000 }
     );
@@ -653,7 +653,7 @@ export default function Ajustes() {
             </Text>
             {[
               { valor: false, titulo: 'Conservarlos en mi Drive', detalle: 'Se borra tu cuenta de Docukids, pero la carpeta Docukids y tus archivos siguen en tu Drive.' },
-              { valor: true, titulo: 'Mandarlos a la papelera de Drive', detalle: 'Además, la carpeta Docukids de tu Drive va a la papelera. Podés recuperarla ahí durante unos 30 días.' },
+              { valor: true, titulo: 'Mandarlos a la papelera de Drive', detalle: 'Además, la carpeta Docukids de tu Drive va a la papelera de Drive. Si volvés a registrarte con la misma cuenta de Google, Docukids te ofrece recuperarla (hasta unos 30 días).' },
             ].map((op) => {
               const elegida = borrarDrive === op.valor;
               return (
