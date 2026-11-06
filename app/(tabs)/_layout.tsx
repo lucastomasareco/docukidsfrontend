@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ import { useChildren } from '../../context/ChildrenContext';
 import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
+import { migrarDriveEnSegundoPlano } from '../../lib/migrarDrive';
 
 const ICONOS: Record<string, { activo: any; inactivo: any }> = {
   index: { activo: 'document-text', inactivo: 'document-text-outline' },
@@ -29,6 +31,11 @@ export default function TabsLayout() {
   const { hijos, seleccionadoId } = useChildren();
   // Con un hijo elegido, el título de la barra lleva su nombre. Si no hay, el título de siempre.
   const nombreHijo = hijos.find((h) => h.id === seleccionadoId)?.name;
+
+  // Al entrar a la app, ordena en segundo plano los documentos viejos de Drive (una sola vez).
+  useEffect(() => {
+    migrarDriveEnSegundoPlano();
+  }, []);
 
   return (
     <AyudaProvider>
