@@ -19,7 +19,8 @@ type AuthContextType = {
   registrarse: (email: string, password: string) => Promise<{ error: ErrorAmigable | null }>;
   cerrarSesion: () => Promise<void>;
   // Si falla, devuelve el error original para que la pantalla lo traduzca.
-  eliminarCuenta: () => Promise<{ error: unknown | null }>;
+  // borrarDrive=true manda la carpeta Docukids a la papelera de Drive (Guía §14). Por defecto se conserva.
+  eliminarCuenta: (borrarDrive?: boolean) => Promise<{ error: unknown | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,9 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Los archivos de Drive y los eventos de Calendar NO se borran.
   // Si sale bien, cerramos la sesión SOLO en este teléfono (scope local):
   // el usuario ya no existe en Supabase, así que no hay nada que avisarle al servidor.
-  const eliminarCuenta = async () => {
+  const eliminarCuenta = async (borrarDrive: boolean = false) => {
     try {
-      await api.delete('/account');
+      await api.delete('/account', { params: { delete_drive: borrarDrive } });
     } catch (e) {
       return { error: e ?? new Error('Error desconocido') };
     }

@@ -135,7 +135,7 @@ export function textoInvitacion(codigo: string, venceIso: string | undefined): s
 //  - titular: la familia se disuelve y el miembro queda con la cuenta vacía;
 //  - miembro: solo sale; los datos del titular no se tocan.
 // Si todavía no se sabe la familia (null), el texto de siempre.
-export function mensajeEliminarCuenta(familia: Familia | null): string {
+export function mensajeEliminarCuenta(familia: Familia | null, borrarDrive: boolean = false): string {
   if (familia?.role === 'member') {
     return (
       'Saldrás de la familia y se borrará tu usuario. ' +
@@ -154,7 +154,9 @@ export function mensajeEliminarCuenta(familia: Familia | null): string {
     'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +
     'Esto no se puede deshacer.\n\n' +
     sobreFamilia +
-    'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ' +
+    (borrarDrive
+      ? 'La carpeta Docukids de tu Google Drive, con todos tus archivos, irá a la papelera de Drive: podrás recuperarla desde ahí durante unos 30 días. '
+      : 'Tus archivos en Google Drive NO se borran: seguirán en tu Drive. ') +
     'Los eventos de Google Calendar tampoco. ' +
     'Dejarás de recibir avisos por email.'
   );

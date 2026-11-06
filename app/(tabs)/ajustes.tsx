@@ -48,6 +48,8 @@ export default function Ajustes() {
   }, [hayCodigo]);
   const [conectando, setConectando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  // Eliminar cuenta (Guía §14): false = conservar mis archivos en Drive (opción B, por defecto); true = mandarlos a la papelera (opción A).
+  const [borrarDrive, setBorrarDrive] = useState(false);
   // Formulario "Cambiar contraseña"
   const [claveVisible, setClaveVisible] = useState(false);
   const [claveActual, setClaveActual] = useState('');
@@ -407,7 +409,9 @@ export default function Ajustes() {
 
   const ejecutarEliminarCuenta = async () => {
     setEliminando(true);
-    const { error } = await eliminarCuenta();
+    // Un miembro de familia no tiene Drive propio: nunca se manda la opción A.
+    const mandarAPapelera = !esMiembro && borrarDrive;
+    const { error } = await eliminarCuenta(mandarAPapelera);
     if (error) {
       setEliminando(false);
       mostrarError(error, { que: 'eliminar la cuenta', onReintentar: ejecutarEliminarCuenta });
@@ -417,7 +421,9 @@ export default function Ajustes() {
     // por encima de las pantallas, así que sigue visible después del cambio.
     mostrarAviso(
       'Cuenta eliminada',
-      'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.',
+      mandarAPapelera
+        ? 'Tus datos de Docukids se borraron y la carpeta Docukids de tu Drive está en la papelera: podés recuperarla ahí durante unos 30 días. Los eventos de Calendar siguen en tu cuenta de Google.'
+        : 'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.',
       { icono: 'checkmark-circle-outline', duracion: 10000 }
     );
   };
@@ -425,7 +431,7 @@ export default function Ajustes() {
   const confirmarEliminarCuenta = async () => {
     const seguro = await confirmar({
       titulo: '¿Eliminar tu cuenta?',
-      mensaje: mensajeEliminarCuenta(familia),
+      mensaje: mensajeEliminarCuenta(familia, !esMiembro && borrarDrive),
       textoConfirmar: 'Eliminar cuenta',
       peligro: true,
       icono: 'warning-outline',
@@ -633,6 +639,38 @@ export default function Ajustes() {
           <Text style={styles.botonTexto}>Cerrar sesión</Text>
         </TouchableOpacity>
 
+        {!esMiembro && (
+          <View style={styles.opcionesDrive}>
+            <Text style={[styles.opcionesDriveTitulo, { color: tema.textPrimary }]}>
+              Si eliminás tu cuenta, ¿qué pasa con tus archivos de Google Drive?
+            </Text>
+            {[
+              { valor: false, titulo: 'Conservarlos en mi Drive', detalle: 'Se borra tu cuenta de Docukids, pero la carpeta Docukids y tus archivos siguen en tu Drive.' },
+              { valor: true, titulo: 'Mandarlos a la papelera de Drive', detalle: 'Además, la carpeta Docukids de tu Drive va a la papelera. Podés recuperarla ahí durante unos 30 días.' },
+            ].map((op) => {
+              const elegida = borrarDrive === op.valor;
+              return (
+                <TouchableOpacity
+                  key={String(op.valor)}
+                  style={[styles.opcionDrive, { borderColor: elegida ? tema.primary : '#bbb' }]}
+                  onPress={() => setBorrarDrive(op.valor)}
+                  disabled={eliminando}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: elegida }}
+                >
+                  <View style={[styles.radioDrive, { borderColor: elegida ? tema.primary : '#888' }]}>
+                    {elegida && <View style={[styles.radioDriveRelleno, { backgroundColor: tema.primary }]} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.opcionDriveTitulo, { color: tema.textPrimary }]}>{op.titulo}</Text>
+                    <Text style={[styles.opcionDriveDetalle, { color: tema.textSecondary }]}>{op.detalle}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.botonEliminar}
           onPress={confirmarEliminarCuenta}
@@ -787,6 +825,13 @@ const styles = StyleSheet.create({
   boton: { backgroundColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 8 },
   botonTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 16 },
   // Rojo fijo (#c62828), como el resto de las acciones destructivas de la app.
+  opcionesDrive: { marginTop: 8, marginBottom: 4 },
+  opcionesDriveTitulo: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
+  opcionDrive: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: 8, padding: 12, marginBottom: 8 },
+  opcionDriveTitulo: { fontSize: 15, fontWeight: 'bold' },
+  opcionDriveDetalle: { fontSize: 13, marginTop: 2 },
+  radioDrive: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, marginRight: 12, alignItems: 'center', justifyContent: 'center' },
+  radioDriveRelleno: { width: 10, height: 10, borderRadius: 5 },
   botonEliminar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginTop: 4 },
   fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 },
   tarjetaModal: { backgroundColor: '#fff', borderRadius: 12, padding: 20 },
