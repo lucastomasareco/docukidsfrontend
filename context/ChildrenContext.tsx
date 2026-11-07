@@ -21,7 +21,8 @@ type ChildrenContextType = {
   cargarHijos: () => Promise<void>;
   // Si falla, devuelve el error original (sin traducir) para que la pantalla lo muestre.
   agregarHijo: (nombre: string, avatarUrl?: string | null) => Promise<{ error: unknown | null }>;
-  editarHijo: (id: number, nombre: string) => Promise<{ error: unknown | null }>;
+  // avatarUrl: texto = foto nueva · null = quitar la foto · sin pasarlo = dejar la que estaba.
+  editarHijo: (id: number, nombre: string, avatarUrl?: string | null) => Promise<{ error: unknown | null }>;
   eliminarHijo: (id: number) => Promise<{ error: unknown | null }>;
 };
 
@@ -84,9 +85,10 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   );
 
   const editarHijo = useCallback(
-    async (id: number, nombre: string) => {
+    async (id: number, nombre: string, avatarUrl?: string | null) => {
       try {
-        await api.put(`/children/${id}`, { name: nombre });
+        // Solo se manda avatar_url si cambió: así editar el nombre no toca la foto.
+        await api.put(`/children/${id}`, avatarUrl === undefined ? { name: nombre } : { name: nombre, avatar_url: avatarUrl });
         await cargarHijos();
         return { error: null };
       } catch (e) {

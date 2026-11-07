@@ -60,6 +60,8 @@ export default function Hijos() {
   const [busqueda, setBusqueda] = useState('');
   // Foto elegida para el hijo nuevo (issue #36), ya reducida y lista para enviar.
   const [avatarNuevo, setAvatarNuevo] = useState<AvatarElegido | null>(null);
+  // Al editar: true si la persona tocó "Quitar" para borrar la foto que ya tenía.
+  const [quitarAvatar, setQuitarAvatar] = useState(false);
 
   // Buscador: muestra los hijos cuyo nombre EMPIEZA con lo escrito (L, Lu, Luc…).
   const textoBuscado = normalizar(busqueda);
@@ -91,6 +93,7 @@ export default function Hijos() {
     setMostrarFormulario(false);
     setNombreNuevo('');
     setAvatarNuevo(null);
+    setQuitarAvatar(false);
     setHijoEditando(null);
   };
 
@@ -101,7 +104,12 @@ export default function Hijos() {
     }
     setGuardando(true);
     const { error } = hijoEditando
-      ? await editarHijo(hijoEditando.id, nombreNuevo.trim())
+      ? await editarHijo(
+          hijoEditando.id,
+          nombreNuevo.trim(),
+          // foto nueva → texto · "Quitar" → null · sin tocar → undefined (queda como estaba)
+          avatarNuevo ? avatarNuevo.dataUri : quitarAvatar ? null : undefined
+        )
       : await agregarHijo(nombreNuevo.trim(), avatarNuevo?.dataUri);
     setGuardando(false);
     if (error) {
@@ -127,6 +135,8 @@ export default function Hijos() {
   // Docs y Calendario): ahí se cambia el nombre o se elimina.
   const abrirEdicion = (hijo: Hijo) => {
     setHijoEditando(hijo);
+    setAvatarNuevo(null);
+    setQuitarAvatar(false);
     setNombreNuevo(hijo.name);
     setMostrarFormulario(true);
   };
@@ -297,14 +307,21 @@ export default function Hijos() {
           <Text style={styles.formularioTitulo}>
             {hijoEditando ? 'Editar hijo' : 'Nuevo hijo'}
           </Text>
-          {!hijoEditando && (
-            <SelectorAvatar
-              nombre={nombreNuevo}
-              valor={avatarNuevo}
-              onCambiar={setAvatarNuevo}
-              deshabilitado={guardando}
-            />
-          )}
+          <SelectorAvatar
+            nombre={nombreNuevo}
+            valor={
+              avatarNuevo ??
+              (hijoEditando?.avatar_url && !quitarAvatar
+                ? { dataUri: hijoEditando.avatar_url, bytes: 0 } // la foto que ya tenía
+                : null)
+            }
+            onCambiar={(avatar) => {
+              setAvatarNuevo(avatar);
+              // "Quitar" solo importa si el hijo ya tenía una foto guardada.
+              setQuitarAvatar(avatar === null && !!hijoEditando?.avatar_url);
+            }}
+            deshabilitado={guardando || eliminando}
+          />
           <TextInput
             placeholderTextColor="#5F5F5F"
             style={styles.input}
