@@ -27,6 +27,8 @@ type Orden = Record<string, number[]>;
 const claveOrden = (usuarioId: string) => `docukids:orden:${usuarioId}`;
 // Clave de la versión anterior (carpetas solo en el teléfono). Se descarta: no se migra.
 const claveVieja = (usuarioId: string) => `docukids:carpetas:${usuarioId}`;
+// Candado del arrastre de documentos (mismo patrón que el de la pantalla Hijos).
+const claveBloqueoDocs = (usuarioId: string) => `docukids:docsBloqueado:${usuarioId}`;
 
 function normalizarOrden(crudo: any): Orden {
   const orden: Orden = {};
@@ -54,6 +56,8 @@ export function useCarpetas(usuarioId: string | null) {
   const [orden, setOrden] = useState<Orden>({});
   // Para qué usuario ya se leyó el orden guardado (evita guardar datos de uno en la clave de otro).
   const [ordenCargadoPara, setOrdenCargadoPara] = useState<string | null>(null);
+  // Candado: con el arrastre bloqueado no se puede mover ningún documento (se recuerda en el dispositivo).
+  const [arrastreBloqueado, setArrastreBloqueado] = useState(false);
 
   const recargar = useCallback(async () => {
     if (!usuarioId) return;
@@ -84,12 +88,17 @@ export function useCarpetas(usuarioId: string | null) {
   useEffect(() => {
     let vigente = true;
     setOrden({});
+    setArrastreBloqueado(false);
     setOrdenCargadoPara(null);
     if (!usuarioId) return;
     AsyncStorage.removeItem(claveVieja(usuarioId)).catch(() => {});
-    AsyncStorage.getItem(claveOrden(usuarioId))
-      .then((texto) => {
+    Promise.all([
+      AsyncStorage.getItem(claveOrden(usuarioId)),
+      AsyncStorage.getItem(claveBloqueoDocs(usuarioId)),
+    ])
+      .then(([texto, textoBloqueo]) => {
         if (!vigente) return;
+        setArrastreBloqueado(textoBloqueo === '1');
         if (texto) {
           try {
             setOrden(normalizarOrden(JSON.parse(texto)));
@@ -112,6 +121,11 @@ export function useCarpetas(usuarioId: string | null) {
     if (!usuarioId || ordenCargadoPara !== usuarioId) return;
     AsyncStorage.setItem(claveOrden(usuarioId), JSON.stringify(orden)).catch(() => {});
   }, [orden, ordenCargadoPara, usuarioId]);
+  useEffect(() => {
+    if (!usuarioId || ordenCargadoPara !== usuarioId) return;
+    AsyncStorage.setItem(claveBloqueoDocs(usuarioId), arrastreBloqueado ? '1' : '0').catch(() => {});
+  }, [arrastreBloqueado, ordenCargadoPara, usuarioId]);
+  const alternarBloqueoArrastre = useCallback(() => setArrastreBloqueado((b) => !b), []);
 
   // En qué carpeta se muestra un documento (según su folder_id). Si la carpeta no está
   // en la lista, queda suelto: así nunca desaparece un documento.
@@ -202,5 +216,7 @@ export function useCarpetas(usuarioId: string | null) {
     renombrarCarpeta,
     eliminarCarpeta,
     existeNombre,
+    arrastreBloqueado,
+    alternarBloqueoArrastre,
   };
 }

@@ -8,6 +8,8 @@ type Props = {
   onMover: (dy: number) => void;
   // cancelado = true si el sistema le quitó el gesto (no se debe mover nada).
   onSoltar: (dy: number, cancelado: boolean) => void;
+  // Con el candado puesto el asa no se dibuja: no hay nada que agarrar por accidente.
+  bloqueado?: boolean;
 };
 
 // Ícono ≡ que se agarra para arrastrar un documento. Solo este ícono detecta el arrastre,
@@ -24,7 +26,7 @@ function bloquearSeleccionWeb(bloquear: boolean) {
 // interprete el dedo/mouse como desplazamiento de la página.
 const ESTILO_WEB: any = Platform.OS === 'web' ? { cursor: 'grab', userSelect: 'none', touchAction: 'none' } : null;
 
-export default function AsaArrastre({ onInicio, onMover, onSoltar }: Props) {
+export default function AsaArrastre({ onInicio, onMover, onSoltar, bloqueado = false }: Props) {
   // El PanResponder se crea una sola vez; por eso lee siempre las funciones más nuevas desde acá.
   const ultimas = useRef({ onInicio, onMover, onSoltar });
   ultimas.current = { onInicio, onMover, onSoltar };
@@ -50,6 +52,8 @@ export default function AsaArrastre({ onInicio, onMover, onSoltar }: Props) {
       },
     })
   ).current;
+
+  if (bloqueado) return null;
 
   return (
     <View

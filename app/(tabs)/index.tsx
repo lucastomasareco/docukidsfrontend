@@ -153,6 +153,8 @@ export default function Docs() {
     renombrarCarpeta,
     eliminarCarpeta,
     existeNombre,
+    arrastreBloqueado,
+    alternarBloqueoArrastre,
   } = useCarpetas(usuarioId);
   const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
   const [carpetaDestino, setCarpetaDestino] = useState<string>(SUELTO); // al subir
@@ -450,6 +452,7 @@ export default function Docs() {
       if (carpetaDestino !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaDestino]: false }));
       cerrarFormulario();
       cargarDocumentos();
+      mostrarAviso('Subido exitosamente', `"${nombreSubido}" ya está guardado.`, { icono: 'checkmark-circle-outline' });
       // Pantalla de confirmación de fecha (ver Guía: PATCH /documents/{doc_id}).
       setPorConfirmar({
         docId: respuesta.data.doc_id,
@@ -605,6 +608,7 @@ export default function Docs() {
   };
 
   const iniciarArrastre = (doc: Documento, clave: string) => {
+    if (arrastreBloqueado) return; // candado puesto: no se arrastra nada
     let y = 0;
     for (const fila of filas) {
       if (fila.clave === clave) break;
@@ -626,7 +630,7 @@ export default function Docs() {
     actualizarArrastre();
   };
 
-  const terminarArrastre = (cancelado: boolean) => {
+  const terminarArrastre = async (cancelado: boolean) => {
     detenerAutoDesplazar();
     const a = arrastreRef.current;
     const destino = destinoRef.current;
@@ -635,14 +639,31 @@ export default function Docs() {
     setArrastre(null);
     setIndicador(null);
     dragY.setValue(0);
-    if (!a || cancelado || !destino) return;
+    if (!a || cancelado || !destino || arrastreBloqueado) return;
     // Orden final de la carpeta de destino: sus documentos sin el arrastrado, con este en su lugar.
     const ids = (grupos[destino.carpetaId] ?? []).filter((d) => d.id !== a.doc.id).map((d) => d.id);
     ids.splice(destino.indice, 0, a.doc.id);
+    const cambiaDeCarpeta = carpetaDe(a.doc.folder_id) !== destino.carpetaId;
+
+    // Cambiar de carpeta pide confirmación explícita. Reordenar dentro de la misma carpeta no
+    // mueve el archivo de lugar en Drive, así que se aplica directo.
+    if (cambiaDeCarpeta) {
+      const nombreDestino =
+        destino.carpetaId === SUELTO ? 'A la vista' : carpetas.find((c) => c.id === destino.carpetaId)?.nombre ?? 'esa carpeta';
+      const seguro = await confirmar({
+        titulo: 'Mover archivo',
+        mensaje: `¿Estás seguro de mover "${a.doc.name}" a ${nombreDestino}?`,
+        textoConfirmar: 'Sí, mover',
+        textoCancelar: 'No, dejarlo donde está',
+        icono: 'folder-open-outline',
+      });
+      if (!seguro) return; // el documento sigue donde estaba: no se tocó nada
+    }
+
     colocarOrden(a.doc.id, destino.carpetaId, ids);
     if (destino.carpetaId !== SUELTO) setCerradas((prev) => ({ ...prev, [destino.carpetaId]: false }));
     // Si cambió de carpeta, también se mueve en el servidor (y en Drive).
-    if (carpetaDe(a.doc.folder_id) !== destino.carpetaId) moverEnServidor(a.doc, destino.carpetaId);
+    if (cambiaDeCarpeta) moverEnServidor(a.doc, destino.carpetaId);
   };
 
   // Mueve un documento a otra carpeta. Se ve al instante y, si el servidor falla, vuelve a donde estaba.
@@ -689,8 +710,12 @@ export default function Docs() {
     }
     setGuardandoCarpeta(true);
     try {
-      if (formCarpeta.modo === 'nueva') await crearCarpeta(nombre);
-      else await renombrarCarpeta(formCarpeta.id, nombre);
+      if (formCarpeta.modo === 'nueva') {
+        await crearCarpeta(nombre);
+        mostrarAviso('Creado con éxito', `La carpeta "${nombre}" ya está lista.`, { icono: 'checkmark-circle-outline' });
+      } else {
+        await renombrarCarpeta(formCarpeta.id, nombre);
+      }
       cerrarFormCarpeta();
     } catch (e) {
       mostrarError(e, {
@@ -841,9 +866,21 @@ export default function Docs() {
         </View>
       ) : (
         <>
-          <Text style={styles.ayuda}>
-            <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar. Para mover, arrastrá el ícono ≡.
-          </Text>
+          <View style={styles.filaOrden}>
+            <Text style={styles.textoOrden}>
+              <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar.{' '}
+              {arrastreBloqueado ? 'Mover archivos está bloqueado.' : 'Para mover, arrastrá el ícono ≡.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.botonCandado, arrastreBloqueado && { backgroundColor: colorConOpacidad(tema.primary, 0.35) }]}
+              onPress={alternarBloqueoArrastre}
+              accessibilityRole="button"
+              accessibilityLabel={arrastreBloqueado ? 'Desbloquear el movimiento de documentos' : 'Bloquear el movimiento de documentos'}
+            >
+              <Ionicons name={arrastreBloqueado ? 'lock-closed' : 'lock-open-outline'} size={18} color="#1F1F1F" />
+              <Text style={styles.botonCandadoTexto}>{arrastreBloqueado ? 'Desbloquear' : 'Bloquear'}</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.listaDocumentos} onLayout={(e) => {
               alturaListaRef.current = e.nativeEvent.layout.height;
               setAlturaLista(e.nativeEvent.layout.height);
@@ -947,6 +984,7 @@ export default function Docs() {
                             </Text>
                           </View>
                           <AsaArrastre
+                            bloqueado={arrastreBloqueado}
                             onInicio={() => iniciarArrastre(item.doc, item.clave)}
                             onMover={moverArrastre}
                             onSoltar={(_dy, cancelado) => terminarArrastre(cancelado)}
@@ -1293,6 +1331,10 @@ const styles = StyleSheet.create({
   botonGuardar: { backgroundColor: '#1976d2' },
   tituloEdicion: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
   ayudaNegrita: { fontWeight: 'bold', color: '#1F1F1F' },
+  filaOrden: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  textoOrden: { flex: 1, fontSize: 14, color: '#3F3F3F' },
+  botonCandado: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#E6E6E6' },
+  botonCandadoTexto: { fontSize: 14, fontWeight: '600', color: '#1F1F1F' },
   botonEliminar: { marginTop: 14, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 2, borderColor: '#c62828' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
   textoSubiendo: { fontSize: 14, color: '#3F3F3F', marginTop: 8, textAlign: 'center' },
