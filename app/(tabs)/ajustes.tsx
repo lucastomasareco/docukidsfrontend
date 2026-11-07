@@ -16,6 +16,7 @@ import { useChildren } from '../../context/ChildrenContext';
 import { TarjetaError } from '../../components/AvisoError';
 import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
+import TarjetaPapelera from '../../components/TarjetaPapelera';
 import { codigoCompleto, formatearCodigo, mensajeEliminarCuenta, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
 import { copiarTexto } from '../../lib/portapapeles';
 
@@ -418,7 +419,7 @@ export default function Ajustes() {
     setEliminando(true);
     // Un miembro de familia no tiene Drive propio: nunca se manda la opción A.
     const mandarAPapelera = !esMiembro && borrarDrive;
-    const { error } = await eliminarCuenta(mandarAPapelera);
+    const { error, parcial } = await eliminarCuenta(mandarAPapelera);
     if (error) {
       setEliminando(false);
       mostrarError(error, { que: 'eliminar la cuenta', onReintentar: ejecutarEliminarCuenta });
@@ -428,7 +429,9 @@ export default function Ajustes() {
     // por encima de las pantallas, así que sigue visible después del cambio.
     mostrarAviso(
       'Cuenta eliminada',
-      mandarAPapelera
+      mandarAPapelera && parcial
+        ? 'Tus datos de Docukids se borraron. Mandamos a la papelera de Drive los archivos que Docukids pudo mover, pero en tu carpeta Docukids quedaron algunos que Google no nos deja tocar (no los creó la app). Podés borrarlos vos desde Drive. Los eventos de Calendar siguen en tu cuenta de Google.'
+        : mandarAPapelera
         ? 'Tus datos de Docukids se borraron y la carpeta Docukids de tu Drive está en la papelera. Si volvés a registrarte y conectás Google con la misma cuenta, Docukids te ofrece recuperarla (hasta unos 30 días). Los eventos de Calendar siguen en tu cuenta de Google.'
         : 'Tus datos de Docukids se borraron. Tus archivos de Drive y los eventos de Calendar siguen en tu cuenta de Google.',
       { icono: 'checkmark-circle-outline', duracion: 10000 }
@@ -617,6 +620,8 @@ export default function Ajustes() {
           </View>
         )}
 
+        <View style={styles.separador} />
+        <TarjetaPapelera />
         <View style={styles.separador} />
         <Text style={styles.tituloSeccion}>Apariencia</Text>
         <Text style={styles.subtituloSeccion}>Elegí los colores de la app</Text>

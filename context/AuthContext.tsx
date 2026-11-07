@@ -20,7 +20,7 @@ type AuthContextType = {
   cerrarSesion: () => Promise<void>;
   // Si falla, devuelve el error original para que la pantalla lo traduzca.
   // borrarDrive=true manda la carpeta Docukids a la papelera de Drive (Guía §14). Por defecto se conserva.
-  eliminarCuenta: (borrarDrive?: boolean) => Promise<{ error: unknown | null }>;
+  eliminarCuenta: (borrarDrive?: boolean) => Promise<{ error: unknown | null; parcial?: boolean }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -130,13 +130,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api.get('/', { timeout: 90000 });
     } catch {}
+    let parcial = false;
     try {
-      await api.delete('/account', { params: { delete_drive: borrarDrive }, timeout: 120000 });
+      const respuesta = await api.delete('/account', { params: { delete_drive: borrarDrive }, timeout: 120000 });
+      // "DeletedPartial": la cuenta se eliminó, pero Google no dejó mover a la papelera algunos
+      // archivos de la carpeta Docukids (la app no tiene permiso sobre ellos).
+      parcial = respuesta?.data?.message === 'DeletedPartial';
     } catch (e) {
       return { error: e ?? new Error('Error desconocido') };
     }
     await supabase.auth.signOut({ scope: 'local' });
-    return { error: null };
+    return { error: null, parcial };
   };
 
   return (

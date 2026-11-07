@@ -530,10 +530,16 @@ export default function Docs() {
     });
     if (!seguro) return;
     try {
-      await api.delete(`/documents/${doc.id}`);
+      const respuesta = await api.delete(`/documents/${doc.id}`);
       setEditando(null);
       setNombreEditado('');
       cargarDocumentos();
+      // v3.0: el archivo quedó en la papelera de Drive. Se avisa dónde recuperarlo.
+      if (respuesta?.data?.message === 'DeletedToTrash') {
+        mostrarAviso('Documento borrado', 'Podés recuperarlo durante 30 días desde Ajustes → Papelera de documentos.', {
+          icono: 'trash-outline',
+        });
+      }
     } catch (e) {
       mostrarError(e, { que: 'borrar el documento', onReintentar: () => borrarDocumento(doc) });
     }
