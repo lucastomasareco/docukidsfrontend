@@ -1398,7 +1398,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
   },
-  previsualizacion: { width: '100%', height: 140, borderRadius: 8, marginBottom: 12, resizeMode: 'cover' },
+  previsualizacion: {
+  width: '100%',
+  height: 220,
+  borderRadius: 8,
+  marginBottom: 12,
+  resizeMode: 'contain',
+  backgroundColor: '#EEE',
+},
   previsualizacionPDF: {
     width: '100%',
     height: 90,
