@@ -34,6 +34,7 @@ import FormularioSuperior from '../../components/FormularioSuperior';
 import { conectarGoogleEnWeb } from '../../lib/googleWeb';
 import { colorConOpacidad, fechaCorta } from '../../lib/fechas';
 import { SUELTO, useCarpetas } from '../../lib/carpetas';
+import { buscarDocumentos, hayResultados } from '../../lib/busqueda';
 import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
 import SelectorCarpeta from '../../components/SelectorCarpeta';
 import AsaArrastre from '../../components/AsaArrastre';
@@ -157,6 +158,15 @@ export default function Docs() {
     alternarBloqueoArrastre,
   } = useCarpetas(usuarioId);
   const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
+  // Buscador: por nombre de documento y por carpeta (ver lib/busqueda.ts).
+  const [busqueda, setBusqueda] = useState('');
+  const resultadoBusqueda = useMemo(
+    () => buscarDocumentos(busqueda, documentos, carpetas, carpetaDe),
+    [busqueda, documentos, carpetas, carpetaDe]
+  );
+  const buscando = resultadoBusqueda.activa;
+  // Al cambiar de hijo se vacía el buscador: los documentos son otros.
+  useEffect(() => setBusqueda(''), [seleccionadoId]);
   const [carpetaDestino, setCarpetaDestino] = useState<string>(SUELTO); // al subir
   const [carpetaEdicion, setCarpetaEdicion] = useState<string>(SUELTO); // al editar
   const [formCarpeta, setFormCarpeta] = useState<FormCarpeta | null>(null);
@@ -202,6 +212,24 @@ export default function Docs() {
   const filas: Fila[] = useMemo(() => {
     const lista: Fila[] = [];
     const sueltos = grupos[SUELTO] ?? [];
+
+    // Con algo escrito en el buscador: solo lo que coincide, con las carpetas abiertas.
+    if (buscando) {
+      const sueltosOk = sueltos.filter((d) => resultadoBusqueda.docs.has(d.id));
+      if (sueltosOk.length > 0) {
+        lista.push({ tipo: 'etiqueta', clave: 'etiqueta-sueltos', texto: 'A la vista' });
+        sueltosOk.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
+      }
+      carpetas.forEach((c) => {
+        if (!resultadoBusqueda.carpetas.has(c.id)) return;
+        const docs = (grupos[c.id] ?? []).filter((d) => resultadoBusqueda.docs.has(d.id));
+        lista.push({ tipo: 'carpeta', clave: `c-${c.id}`, id: c.id, nombre: c.nombre, cantidad: docs.length, abierta: true });
+        if (docs.length === 0) lista.push({ tipo: 'vacia', clave: `v-${c.id}`, carpetaId: c.id });
+        else docs.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: true }));
+      });
+      return lista;
+    }
+
     if (sueltos.length > 0) {
       lista.push({ tipo: 'etiqueta', clave: 'etiqueta-sueltos', texto: 'A la vista' });
       sueltos.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
@@ -218,7 +246,7 @@ export default function Docs() {
       else docs.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: true }));
     });
     return lista;
-  }, [grupos, carpetas, cerradas, arrastre]);
+  }, [grupos, carpetas, cerradas, arrastre, buscando, resultadoBusqueda]);
 
   const verificarGoogle = useCallback(async () => {
     try {
@@ -451,6 +479,7 @@ export default function Docs() {
       // Se abre la carpeta para que se vea el documento nuevo (ya quedó dentro de ella en Drive).
       if (carpetaDestino !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaDestino]: false }));
       cerrarFormulario();
+      setBusqueda(''); // para que se vea el documento nuevo
       cargarDocumentos();
       mostrarAviso('Subido exitosamente', `"${nombreSubido}" ya está guardado.`, { icono: 'checkmark-circle-outline' });
       // Pantalla de confirmación de fecha (ver Guía: PATCH /documents/{doc_id}).
@@ -608,7 +637,7 @@ export default function Docs() {
   };
 
   const iniciarArrastre = (doc: Documento, clave: string) => {
-    if (arrastreBloqueado) return; // candado puesto: no se arrastra nada
+    if (arrastreBloqueado || buscando) return; // candado puesto o lista filtrada: no se arrastra nada
     let y = 0;
     for (const fila of filas) {
       if (fila.clave === clave) break;
@@ -639,7 +668,7 @@ export default function Docs() {
     setArrastre(null);
     setIndicador(null);
     dragY.setValue(0);
-    if (!a || cancelado || !destino || arrastreBloqueado) return;
+    if (!a || cancelado || !destino || arrastreBloqueado || buscando) return;
     // Orden final de la carpeta de destino: sus documentos sin el arrastrado, con este en su lugar.
     const ids = (grupos[destino.carpetaId] ?? []).filter((d) => d.id !== a.doc.id).map((d) => d.id);
     ids.splice(destino.indice, 0, a.doc.id);
@@ -712,6 +741,7 @@ export default function Docs() {
     try {
       if (formCarpeta.modo === 'nueva') {
         await crearCarpeta(nombre);
+        setBusqueda(''); // para que se vea la carpeta nueva
         mostrarAviso('Creado con éxito', `La carpeta "${nombre}" ya está lista.`, { icono: 'checkmark-circle-outline' });
       } else {
         await renombrarCarpeta(formCarpeta.id, nombre);
@@ -837,16 +867,49 @@ export default function Docs() {
           >
             <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
           </TouchableOpacity>
-          {/* Más chico y solo con borde: es para ordenar, no para subir. */}
-          <TouchableOpacity
-            style={[styles.botonNuevaCarpeta, { borderColor: tema.primary }]}
-            onPress={abrirNuevaCarpeta}
-            activeOpacity={0.7}
-            accessibilityLabel="Crear una carpeta nueva"
-          >
-            <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
-            <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
-          </TouchableOpacity>
+          <View style={styles.filaAcciones}>
+            {/* Más chico y solo con borde: es para ordenar, no para subir. */}
+            <TouchableOpacity
+              style={[styles.botonNuevaCarpeta, { borderColor: tema.primary }]}
+              onPress={abrirNuevaCarpeta}
+              activeOpacity={0.7}
+              accessibilityLabel="Crear una carpeta nueva"
+            >
+              <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
+              <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
+            </TouchableOpacity>
+            {/* Buscador: mismo alto y estilo que "Nueva carpeta". */}
+            <View
+              style={[
+                styles.buscador,
+                { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
+              ]}
+            >
+              <Ionicons name="search-outline" size={18} color="#1F1F1F" />
+              <TextInput
+                style={[styles.buscadorInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
+                placeholder="Buscar documento o carpeta"
+                placeholderTextColor="#5F5F5F"
+                value={busqueda}
+                onChangeText={setBusqueda}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Buscar documento o carpeta"
+                accessibilityHint="Escribí el nombre del documento, de la carpeta o los dos. Ejemplo: salud cartilla"
+              />
+              {busqueda.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setBusqueda('')}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Borrar búsqueda"
+                >
+                  <Ionicons name="close-circle" size={20} color="#3F3F3F" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </>
       )}
 
@@ -869,7 +932,11 @@ export default function Docs() {
           <View style={styles.filaOrden}>
             <Text style={styles.textoOrden}>
               <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar.{' '}
-              {arrastreBloqueado ? 'Mover archivos está bloqueado.' : 'Para mover, arrastrá el ícono ≡.'}
+              {arrastreBloqueado
+                ? 'Mover archivos está bloqueado.'
+                : buscando
+                ? 'Borrá la búsqueda para mover archivos.'
+                : 'Para mover, arrastrá el ícono ≡.'}
             </Text>
             <TouchableOpacity
               style={[styles.botonCandado, arrastreBloqueado && { backgroundColor: colorConOpacidad(tema.primary, 0.35) }]}
@@ -891,11 +958,20 @@ export default function Docs() {
               scrollEnabled={!arrastre}
               /* AGREGADO: Esto muestra el mensaje de vacío solo si no hay filas (carpetas ni documentos), manteniendo visibles los encabezados */
               ListEmptyComponent={
-                <EstadoVacio
-                  icono="document-text-outline"
-                  titulo={`${hijoSeleccionado?.name} todavía no tiene documentos`}
-                  mensaje="Tocá SUBIR DOCUMENTO y elegí una foto o un PDF del DNI, el carnet de vacunas u otro. Si tiene fecha de vencimiento, te avisamos por email antes de que venza."
-                />
+                buscando && !hayResultados(resultadoBusqueda) ? (
+                  <EstadoVacio
+                    variante="compacta"
+                    icono="search-outline"
+                    titulo="No se encontró"
+                    mensaje={`Nada coincide con "${busqueda.trim()}" en los documentos de ${hijoSeleccionado?.name}. Es posible que esté en otro hijo: cambialo arriba, en "Estás viendo a".`}
+                  />
+                ) : (
+                  <EstadoVacio
+                    icono="document-text-outline"
+                    titulo={`${hijoSeleccionado?.name} todavía no tiene documentos`}
+                    mensaje="Tocá SUBIR DOCUMENTO y elegí una foto o un PDF del DNI, el carnet de vacunas u otro. Si tiene fecha de vencimiento, te avisamos por email antes de que venza."
+                  />
+                )
               }
               onContentSizeChange={(_w: number, h: number) => {
                 contenidoAltoRef.current = h;
@@ -984,7 +1060,7 @@ export default function Docs() {
                             </Text>
                           </View>
                           <AsaArrastre
-                            bloqueado={arrastreBloqueado}
+                            bloqueado={arrastreBloqueado || buscando}
                             onInicio={() => iniciarArrastre(item.doc, item.clave)}
                             onMover={moverArrastre}
                             onSoltar={(_dy, cancelado) => terminarArrastre(cancelado)}
@@ -1241,18 +1317,29 @@ const styles = StyleSheet.create({
   },
   botonSubirGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
   // Más bajo y con solo borde: se distingue del botón grande SUBIR DOCUMENTO.
+  filaAcciones: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   botonNuevaCarpeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
+    minHeight: 40,
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: 1.5,
-    marginBottom: 14,
   },
+  // Mismo alto, borde y tinte que "Nueva carpeta" y los títulos de carpeta.
+  buscador: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  buscadorInput: { flex: 1, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   botonNuevaCarpetaTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
   etiquetaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#3F3F3F', marginTop: 4, marginBottom: 6, textTransform: 'uppercase' },
   carpetaVacia: { fontSize: 14, color: '#3F3F3F', fontStyle: 'italic', marginLeft: 14, marginBottom: 10 },
