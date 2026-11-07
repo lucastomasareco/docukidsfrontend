@@ -27,33 +27,36 @@ export default function Login() {
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.titulo}>Docukids</Text>
-      <Text style={styles.subtitulo}>Iniciá sesión</Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.titulo}>Docukids</Text>
+          <Text style={styles.subtitulo}>Iniciá sesión</Text>
 
-      <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => claveRef.current?.focus()} />
-      <CampoContrasena ref={claveRef} placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} returnKeyType="go" onSubmitEditing={() => { if (!cargando) handleLogin(); }} />
+          <TextInput placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => claveRef.current?.focus()} />
+          <CampoContrasena ref={claveRef} placeholderTextColor="#5F5F5F" style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} returnKeyType="go" onSubmitEditing={() => { if (!cargando) handleLogin(); }} />
 
-      <TouchableOpacity style={styles.boton} onPress={handleLogin} disabled={cargando}>
-        <Text style={styles.botonTexto}>{cargando ? 'Ingresando...' : 'Ingresar'}</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.boton} onPress={handleLogin} disabled={cargando}>
+            <Text style={styles.botonTexto}>{cargando ? 'Ingresando...' : 'Ingresar'}</Text>
+          </TouchableOpacity>
 
-      <Link href="/(auth)/recuperar" style={styles.link}>
-        <Text style={{ fontSize: 16, color: '#1F1F1F', textDecorationLine: 'underline' }}>¿Olvidaste tu contraseña?</Text>
-      </Link>
+          <Link href="/(auth)/recuperar" style={styles.link}>
+            <Text style={{ fontSize: 16, color: '#1F1F1F', textDecorationLine: 'underline' }}>¿Olvidaste tu contraseña?</Text>
+          </Link>
 
-      <Link href="/(auth)/register" style={styles.link}>
-        <Text style={{ fontSize: 16, color: '#1F1F1F' }}>¿No tenés cuenta? Registrate</Text>
-      </Link>
+          <Link href="/(auth)/register" style={styles.link}>
+            <Text style={{ fontSize: 16, color: '#1F1F1F' }}>¿No tenés cuenta? Registrate</Text>
+          </Link>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  tarjeta: {width: '100%', maxWidth: 440, backgroundColor: '#FFF4E0', borderWidth: 2, borderColor: '#7FD1D1', borderRadius: 20, paddingHorizontal: 24, paddingVertical: 28, elevation: 4, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },},
   titulo: { fontSize: 34, fontWeight: 'bold', textAlign: 'center' },
   subtitulo: { fontSize: 18, color: '#3F3F3F', textAlign: 'center', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, color: '#1F1F1F', backgroundColor: '#FFFFFF' },
   boton: { backgroundColor: '#1976d2', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   botonTexto: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   link: { marginTop: 20, textAlign: 'center' },
