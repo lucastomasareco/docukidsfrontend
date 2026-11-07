@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
+  Image,
   Text,
   FlatList,
   TouchableOpacity,
@@ -19,6 +20,8 @@ import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import TarjetaRecuperarDatos from '../../components/TarjetaRecuperarDatos';
+import SelectorAvatar from '../../components/SelectorAvatar';
+import type { AvatarElegido } from '../../lib/avatar';
 import { colorConOpacidad } from '../../lib/fechas';
 
 // Para comparar nombres: sin mayúsculas, sin tildes y sin espacios de más.
@@ -55,6 +58,8 @@ export default function Hijos() {
   const [eliminando, setEliminando] = useState(false);
   const [hijoEditando, setHijoEditando] = useState<Hijo | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  // Foto elegida para el hijo nuevo (issue #36), ya reducida y lista para enviar.
+  const [avatarNuevo, setAvatarNuevo] = useState<AvatarElegido | null>(null);
 
   // Buscador: muestra los hijos cuyo nombre EMPIEZA con lo escrito (L, Lu, Luc…).
   const textoBuscado = normalizar(busqueda);
@@ -85,6 +90,7 @@ export default function Hijos() {
   const cerrarFormulario = () => {
     setMostrarFormulario(false);
     setNombreNuevo('');
+    setAvatarNuevo(null);
     setHijoEditando(null);
   };
 
@@ -96,7 +102,7 @@ export default function Hijos() {
     setGuardando(true);
     const { error } = hijoEditando
       ? await editarHijo(hijoEditando.id, nombreNuevo.trim())
-      : await agregarHijo(nombreNuevo.trim());
+      : await agregarHijo(nombreNuevo.trim(), avatarNuevo?.dataUri);
     setGuardando(false);
     if (error) {
       if (hijoEditando && (error as any)?.response?.status === 404) {
@@ -270,7 +276,11 @@ export default function Hijos() {
                 activeOpacity={0.7}
               >
                 <View style={[styles.avatar, seleccionado && { backgroundColor: tema.primary }]}>
-                  <Text style={styles.avatarTexto}>{inicial(item.name)}</Text>
+                  {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={styles.avatarImagen} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.avatarTexto}>{inicial(item.name)}</Text>
+                  )}
                 </View>
                 <View>
                   <Text style={styles.nombre}>{item.name}</Text>
@@ -287,6 +297,14 @@ export default function Hijos() {
           <Text style={styles.formularioTitulo}>
             {hijoEditando ? 'Editar hijo' : 'Nuevo hijo'}
           </Text>
+          {!hijoEditando && (
+            <SelectorAvatar
+              nombre={nombreNuevo}
+              valor={avatarNuevo}
+              onCambiar={setAvatarNuevo}
+              deshabilitado={guardando}
+            />
+          )}
           <TextInput
             placeholderTextColor="#5F5F5F"
             style={styles.input}
@@ -383,6 +401,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  avatarImagen: { width: 44, height: 44, borderRadius: 22 },
   avatarSeleccionado: { backgroundColor: '#1976d2' },
   avatarTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 20 },
   nombre: { fontSize: 18, fontWeight: '600' },

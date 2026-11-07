@@ -7,6 +7,8 @@ export type Hijo = {
   id: number;
   name: string;
   birth_date: string | null;
+  // Foto de perfil (issue #36): imagen chica en formato "data:image/jpeg;base64,...".
+  avatar_url?: string | null;
 };
 
 type ChildrenContextType = {
@@ -18,7 +20,7 @@ type ChildrenContextType = {
   seleccionarHijo: (id: number) => void;
   cargarHijos: () => Promise<void>;
   // Si falla, devuelve el error original (sin traducir) para que la pantalla lo muestre.
-  agregarHijo: (nombre: string) => Promise<{ error: unknown | null }>;
+  agregarHijo: (nombre: string, avatarUrl?: string | null) => Promise<{ error: unknown | null }>;
   editarHijo: (id: number, nombre: string) => Promise<{ error: unknown | null }>;
   eliminarHijo: (id: number) => Promise<{ error: unknown | null }>;
 };
@@ -68,9 +70,10 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   }, [usuarioId, cargarHijos]);
 
   const agregarHijo = useCallback(
-    async (nombre: string) => {
+    async (nombre: string, avatarUrl?: string | null) => {
       try {
-        await api.post('/children', { name: nombre });
+        // La foto viaja en el MISMO pedido que crea al hijo: no hay llamadas extra.
+        await api.post('/children', avatarUrl ? { name: nombre, avatar_url: avatarUrl } : { name: nombre });
         await cargarHijos();
         return { error: null };
       } catch (e) {
