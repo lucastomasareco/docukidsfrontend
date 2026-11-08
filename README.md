@@ -1,82 +1,40 @@
 # DocuKids - Frontend
 
-**DocuKids** es una aplicación APK diseñada para ayudar a padres y tutores a gestionar y organizar la documentación de sus hijos de forma centralizada. La plataforma se integra de manera nativa con las herramientas de Google:
-- **Google Drive / Gmail:** Para organizar, escanear y almacenar documentos importantes (certificados de vacunación, fichas escolares, estudios médicos).
-- **Google Calendar:** Para agendar, sincronizar y recibir alertas de turnos médicos, eventos escolares y actividades extraescolares.
+DocuKids ayuda a madres, padres y tutores a gestionar los documentos de sus hijos en un solo lugar. Es una aplicación web (con soporte para generar APK mediante EAS) que se conecta a un backend propio, el cual se integra con Google Drive, Google Calendar y Gmail.
 
----
+Web: https://docukidsfrontend.vercel.app/
 
-## 🚀 Requisitos e Instalación
+## Requisitos e instalación
 
-### Prerrequisitos
-- Node.js (versión 18.x o superior recomendada)
-- npm, yarn o pnpm como gestor de paquetes
+- Node.js 18 o superior
+- npm
 
-### Pasos para ejecutar el proyecto localmente
+1. Clonar: `git clone https://github.com/lucastomasareco/docukidsfrontend.git` y entrar a la carpeta.
+2. Instalar dependencias: `npm install`
+3. Crear un archivo `.env` en la raíz con:
 
-1. **Clonar el repositorio:**
-   git clone https://github.com/lucastomasareco/docukidsfrontend.git
-   cd docukidsfrontend
+   EXPO_PUBLIC_API_URL=http://localhost:8000
+   EXPO_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anonima
 
-2. **Instalar dependencias:**
-   npm install
+4. Levantar la web en desarrollo: `npm run web` (queda en http://localhost:8081).
+5. Generar la versión de producción: `npm run build` (salida en `dist/`).
 
-3. **Configurar las variables de entorno:**
-   Crea un archivo `.env` en la raíz del proyecto basándote en la plantilla `.env.example`:
-   cp .env.example .env
+Pruebas E2E: con la app levantada, `npx playwright test`.
 
-   Define las variables necesarias en el archivo `.env`:
-   REACT_APP_API_URL=http://localhost:8000/api
-   REACT_APP_GOOGLE_CLIENT_ID=tu_google_client_id_aqui
-
-4. **Ejecutar la aplicación en entorno de desarrollo:**
-   npm start
-   # o bien: npm run dev
-
-   La aplicación estará disponible en `http://localhost:3000`.
-
----
-
-## 📁 Estructura del Proyecto
-
-El código fuente está organizado de forma modular para garantizar escalabilidad y mantenibilidad:
+## Estructura del proyecto
 
 docukidsfrontend/
+├── app/            # Rutas (Expo Router): (auth) login/registro, (tabs) Documentos, Calendario, Hijos, Ajustes
+├── assets/         # Íconos e imágenes
+├── components/     # Componentes reutilizables
+├── context/        # Estado global (sesión, hijos, familia, tema, avisos)
+├── lib/            # Lógica y llamadas al backend
+├── e2e/            # Pruebas end-to-end (Playwright)
+├── docs/           # Entregas, presentación, manual y documentación técnica
+├── app.json, vercel.json, eas.json, playwright.config.ts
+└── package.json
 
-├── public/               # Archivos públicos estáticos
+## Control de versiones
 
-├── src/
-
-│   ├── assets/             # Imágenes, íconos y recursos visuales
-
-│   ├── components/         # Componentes reutilizables (Botones, Inputs, Navbar, Modales)
-
-│   ├── config/             # Configuración de integración con Google APIs y Axios
-
-│   ├── hooks/              # Custom Hooks para gestión de estado o llamadas async
-
-│   ├── pages/              # Vistas principales (Home, Documentos, Turnos, Perfil)
-
-│   ├── services/           # Servicios para peticiones HTTP a APIs (Drive, Calendar, Backend)
-
-│   ├── styles/             # Archivos de estilos globales o módulos CSS/Tailwind
-
-│   ├── App.js              # Enrutamiento y componente principal
-
-│   └── index.js            # Punto de entrada de React
-
-├── .env.example            # Plantilla de variables de entorno (sin credenciales)
-
-├── .gitignore              # Archivos y carpetas excluidos del control de versiones
-
-├── package.json            # Dependencias y scripts del proyecto
-
-└── README.md               # Documentación del proyecto
-
----
-
-## 🔒 Control de Versiones y `.gitignore`
-
-- **Archivos excluidos:** El archivo `.gitignore` está configurado para omitir la carpeta `node_modules/`, archivos de entorno (`.env`, `.env.local`), carpetas de compilación (`build/`, `dist/`) y logs de errores.
-- **Seguridad:** No existen credenciales, claves API privadas ni datos sensibles commiteados en el repositorio.
-- 
+El `.gitignore` excluye `node_modules/`, `.env`, `.expo/` y `dist/`. No hay credenciales en el repositorio.
