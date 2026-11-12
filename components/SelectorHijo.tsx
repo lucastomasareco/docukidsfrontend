@@ -49,7 +49,7 @@ export default function SelectorHijo() {
     <>
       <View ref={botonRef} collapsable={false} style={styles.contenedor}>
         <TouchableOpacity
-          style={[styles.boton, { borderColor: tema.primary }]}
+          style={[styles.boton, { backgroundColor: tema.primary, borderColor: tema.primary }]}
           onPress={abrir}
           disabled={!puedeCambiar}
           activeOpacity={0.7}
