@@ -10,7 +10,6 @@ import {
   Modal,
   Linking,
   Platform,
-  ScrollView,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -39,7 +38,6 @@ import { buscarDocumentos, hayResultados } from '../../lib/busqueda';
 import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
 import SelectorCarpeta from '../../components/SelectorCarpeta';
 import AsaArrastre from '../../components/AsaArrastre';
-import MenuAcciones from '../../components/MenuAcciones';
 
 type Documento = {
   id: number;
@@ -127,8 +125,6 @@ export default function Docs() {
     nombre: string;
     fecha: string | null;
   } | null>(null);
-
-  const [moviendo, setMoviendo] = useState<Documento | null>(null);
 
   // null = todavía no sabemos (evita el "flash" del botón); true/false = confirmado.
   const [googleConectado, setGoogleConectado] = useState<boolean | null>(null);
@@ -518,25 +514,6 @@ export default function Docs() {
     setCarpetaEdicion(carpetaDe(doc.folder_id));
   };
 
-  const moverADestino = (doc: Documento, carpetaId: string) => {
-    setMoviendo(null);
-    olvidarOrden(doc.id);
-    if (carpetaId !== SUELTO) setCerradas((prev) => ({ ...prev, [carpetaId]: false }));
-    moverEnServidor(doc, carpetaId);
-  };
-
-  const verDetalles = (doc: Documento) => {
-    const nombreCarpeta =
-    carpetaDe(doc.folder_id) === SUELTO
-      ? 'A la vista'
-      : carpetas.find((c) => c.id === carpetaDe(doc.folder_id))?.nombre ?? 'Carpeta';
-    const vence = doc.expiry_date ? fechaCorta(doc.expiry_date) : 'Sin fecha';
-    mostrarAviso(doc.name, `${TEXTO_POR_ESTADO[doc.status]} · Vence: ${vence} · Carpeta: ${nombreCarpeta}`, {
-    icono: 'information-circle-outline',
-    duracion: 9000,
-    });
-  };
-
   const cerrarEdicion = () => {
     if (guardandoEdicion) return;
     setEditando(null);
@@ -780,9 +757,9 @@ export default function Docs() {
     }
   };
 
-  const borrarCarpetaPorId = async (id: string) => {
-    if (guardandoCarpeta) return;
-    const carpeta = carpetas.find((c) => c.id === id);
+  const borrarCarpeta = async () => {
+    if (!formCarpeta || formCarpeta.modo !== 'editar' || guardandoCarpeta) return;
+    const carpeta = carpetas.find((c) => c.id === formCarpeta.id);
     if (!carpeta) return;
     const seguro = await confirmar({
       titulo: 'Borrar carpeta',
@@ -795,17 +772,13 @@ export default function Docs() {
     try {
       await eliminarCarpeta(carpeta.id);
       cerrarFormCarpeta();
-      cargarDocumentos();
+      cargarDocumentos(); // los documentos de esa carpeta ahora vienen con folder_id = null
     } catch (e) {
-      mostrarError(e, { que: 'borrar la carpeta', onReintentar: () => borrarCarpetaPorId(id) });
+      mostrarError(e, { que: 'borrar la carpeta', onReintentar: borrarCarpeta });
     } finally {
       setGuardandoCarpeta(false);
     }
-};
-
-const borrarCarpeta = () => {
-  if (formCarpeta && formCarpeta.modo === 'editar') borrarCarpetaPorId(formCarpeta.id);
-};
+  };
 
   if (cargandoHijos && hijos.length === 0) {
     return (
@@ -958,9 +931,12 @@ const borrarCarpeta = () => {
         <>
           <View style={styles.filaOrden}>
             <Text style={styles.textoOrden}>
-              <Text style={styles.ayuda}>
-                <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Usá los tres puntos ⋮ para ver detalles, renombrar, mover o borrar.
-              </Text>             
+              <Text style={styles.ayudaNegrita}>Tocá para abrir.</Text> Mantené presionado para renombrar o borrar.{' '}
+              {arrastreBloqueado
+                ? 'Mover archivos está bloqueado.'
+                : buscando
+                ? 'Borrá la búsqueda para mover archivos.'
+                : 'Para mover, arrastrá el ícono ≡.'}
             </Text>
             <TouchableOpacity
               style={[styles.botonCandado, arrastreBloqueado && { backgroundColor: colorConOpacidad(tema.primary, 0.35) }]}
@@ -1061,14 +1037,7 @@ const borrarCarpeta = () => {
                           abierta={item.abierta}
                           resaltada={lado === 'dentro'}
                           onPress={() => alternarCarpeta(item.id)}
-                          acciones={
-                            carpetas.find((c) => c.id === item.id)?.fija
-                              ? []
-                              : [
-                                 { etiqueta: 'Renombrar', icono: 'create-outline', onPress: () => abrirEdicionCarpeta(item.id, item.nombre) },
-                                 { etiqueta: 'Eliminar', icono: 'trash-outline', peligro: true, onPress: () => borrarCarpetaPorId(item.id) },
-                                ]
-                          }
+                          onLongPress={() => abrirEdicionCarpeta(item.id, item.nombre)}
                         />
                       ) : item.tipo === 'vacia' ? (
                         <Text style={[styles.carpetaVacia, lado === 'dentro' && styles.vaciaResaltada]}>
@@ -1078,9 +1047,9 @@ const borrarCarpeta = () => {
                         <TouchableOpacity
                           style={[styles.card, item.sangria && styles.cardEnCarpeta]}
                           onPress={() => abrirDocumento(item.doc)}
-                          
+                          onLongPress={() => abrirEdicion(item.doc)}
                           activeOpacity={0.7}
-                          accessibilityHint="Tocá para abrir. Usá el botón de tres puntos para más acciones"
+                          accessibilityHint="Tocá para abrir. Mantené presionado para editar, mover o borrar"
                         >
                           <View style={[styles.punto, { backgroundColor: COLOR_POR_ESTADO[item.doc.status] }]} />
                           <View style={{ flex: 1 }}>
@@ -1090,15 +1059,11 @@ const borrarCarpeta = () => {
                               {item.doc.expiry_date ? ` · ${fechaCorta(item.doc.expiry_date)}` : ''}
                             </Text>
                           </View>
-                          <MenuAcciones
-                            etiquetaAccesible={`Acciones de ${item.doc.name}`}
-                            bloqueado={!!arrastre}
-                            acciones={[
-                              { etiqueta: 'Ver detalles', icono: 'information-circle-outline', onPress: () => verDetalles(item.doc) },
-                              { etiqueta: 'Editar', icono: 'create-outline', onPress: () => abrirEdicion(item.doc) },
-                              { etiqueta: 'Mover a carpeta', icono: 'folder-outline', onPress: () => setMoviendo(item.doc) },
-                              { etiqueta: 'Eliminar', icono: 'trash-outline', peligro: true, onPress: () => borrarDocumento(item.doc) },
-                            ]}
+                          <AsaArrastre
+                            bloqueado={arrastreBloqueado || buscando}
+                            onInicio={() => iniciarArrastre(item.doc, item.clave)}
+                            onMover={moverArrastre}
+                            onSoltar={(_dy, cancelado) => terminarArrastre(cancelado)}
                           />
                         </TouchableOpacity>
                       )}
@@ -1273,27 +1238,6 @@ const borrarCarpeta = () => {
           )}
         </FormularioSuperior>
       )}
-      
-      <Modal visible={!!moviendo} transparent animationType="fade" onRequestClose={() => setMoviendo(null)}>
-        <TouchableOpacity style={styles.fondoMenu} activeOpacity={1} onPress={() => setMoviendo(null)}>
-          <View style={styles.menu} onStartShouldSetResponder={() => true}>
-            <Text style={styles.menuTitulo}>Mover "{moviendo?.name}" a:</Text>
-            <ScrollView style={{ maxHeight: 320 }}>
-              {moviendo &&
-                [{ id: SUELTO, nombre: 'A la vista' }, ...carpetas]
-                  .filter((c) => c.id !== carpetaDe(moviendo.folder_id))
-                  .map((c) => (
-                    <TouchableOpacity key={c.id} style={styles.menuOpcion} onPress={() => moverADestino(moviendo, c.id)}>
-                      <Text style={styles.menuOpcionTexto}>{c.nombre}</Text>
-                    </TouchableOpacity>
-                  ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.menuCancelar} onPress={() => setMoviendo(null)}>
-              <Text style={styles.menuCancelarTexto}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       <Modal
         visible={mostrarMenu}
