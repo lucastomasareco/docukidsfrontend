@@ -437,6 +437,8 @@ export default function Calendario() {
   }
 
   // Medidas del calendario en pantalla ancha: más grande y ajustado al alto disponible.
+  // Proporción: el calendario ocupa ~42 % del ancho (turnos, el resto), con un mínimo de 440 y un
+  // máximo de 580 píxeles para que ni en una portátil chica quede apretado ni en un monitor enorme se estire.
   const anchoColCalendario = Math.max(440, Math.min(580, Math.round(anchoPantalla * 0.42)));
   // OJO: react-native-calendars calcula sus estilos UNA sola vez al crearse y después ignora cambios
   // del tema. Por eso el <Calendar> lleva una `key` con estas medidas: si cambian (ventana más baja,
@@ -837,7 +839,9 @@ const styles = StyleSheet.create({
   cuerpoAncho: { flex: 1, flexDirection: 'row', gap: 20, marginTop: 8 },
   // Se estira hacia abajo hasta la línea de arriba del botón +
   // (el botón mide 56 y está a 30 del borde; el contenedor ya deja 16 de margen).
-  colCalendario: { width: 440, alignSelf: 'stretch', marginBottom: 45, overflow: 'hidden', borderRadius: 8 },
+  // flexGrow/flexShrink en 0: el calendario respeta SU ancho (una proporción fija de la pantalla) y
+  // no se come el espacio de los turnos. (El ScrollView de la web trae flexGrow: 1 por defecto.)
+  colCalendario: { width: 440, flexGrow: 0, flexShrink: 0, alignSelf: 'stretch', marginBottom: 45, overflow: 'hidden', borderRadius: 8 },
   colTurnos: { flex: 1, minWidth: 0 },
   buscador: {
     flexDirection: 'row',
