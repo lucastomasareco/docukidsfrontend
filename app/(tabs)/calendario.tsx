@@ -8,6 +8,7 @@ import {
   TextInput,
   StyleSheet,
   Platform,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -86,6 +87,9 @@ export default function Calendario() {
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   // Buscador de turnos: lo escrito. Con algo escrito, la lista muestra solo lo que coincide.
   const [busqueda, setBusqueda] = useState('');
+  // Mes que se está viendo en el calendario. Así, si la ventana cambia de tamaño y el calendario se
+  // redibuja, no vuelve solo al mes de hoy.
+  const [mesVisible, setMesVisible] = useState(fechaDeHoy());
   // Al cambiar de hijo se vacía el buscador: los turnos son otros.
   useEffect(() => setBusqueda(''), [seleccionadoId]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -434,11 +438,18 @@ export default function Calendario() {
 
   // Medidas del calendario en pantalla ancha: más grande y ajustado al alto disponible.
   const anchoColCalendario = Math.max(440, Math.min(580, Math.round(anchoPantalla * 0.42)));
-  const GASTO_FIJO = 105; // encabezado (mes + días de la semana) y márgenes, aprox.
+  // OJO: react-native-calendars calcula sus estilos UNA sola vez al crearse y después ignora cambios
+  // del tema. Por eso el <Calendar> lleva una `key` con estas medidas: si cambian (ventana más baja,
+  // zoom del navegador), se vuelve a crear con las medidas nuevas.
+  const disponible = alturaCalendario || 520;
+  const compacto = disponible < 400; // pantalla baja: se aprieta también el encabezado del calendario
+  const GASTO_FIJO = compacto ? 80 : 105; // encabezado (mes + días de la semana) y márgenes, aprox.
   // Alto que le toca a cada uno de los 6 renglones; la casilla se achica sola si falta espacio.
-  const altoRenglon = alturaCalendario ? (alturaCalendario - GASTO_FIJO) / 6 : 60;
-  const TAM_DIA = Math.max(28, Math.min(44, Math.floor(altoRenglon - 8))); // lado de cada casilla de día
+  const altoRenglon = (disponible - GASTO_FIJO) / 6;
+  const TAM_DIA = Math.max(24, Math.min(44, Math.floor(altoRenglon - 6))); // lado de cada casilla de día
   const margenRenglon = Math.max(1, Math.min(28, Math.floor((altoRenglon - TAM_DIA) / 2)));
+  const fuenteDia = TAM_DIA < 30 ? 15 : TAM_DIA < 40 ? 17 : 20;
+  const Envoltorio: any = esAncho ? ScrollView : View;
   const temaBase = {
     todayTextColor: '#1F1F1F',
     todayBackgroundColor: tema.bar,
@@ -456,19 +467,22 @@ export default function Calendario() {
   const temaCalendario: any = esAncho
     ? {
         ...temaBase,
-        textDayFontSize: 20,
-        textMonthFontSize: 23,
-        textDayHeaderFontSize: 16,
+        textDayFontSize: fuenteDia,
+        textMonthFontSize: compacto ? 20 : 23,
+        textDayHeaderFontSize: compacto ? 14 : 16,
         weekVerticalMargin: margenRenglon,
         'stylesheet.day.basic': {
           base: { width: TAM_DIA, height: TAM_DIA, alignItems: 'center' },
           today: { backgroundColor: tema.bar, borderRadius: TAM_DIA / 2 },
           selected: { backgroundColor: tema.primary, borderRadius: TAM_DIA / 2 },
-          text: { marginTop: Math.round(TAM_DIA / 4), fontSize: TAM_DIA < 40 ? 17 : 20, color: '#1F1F1F', backgroundColor: 'rgba(0, 0, 0, 0)' },
+          text: { marginTop: Math.round(TAM_DIA / 4), fontSize: fuenteDia, color: '#1F1F1F', backgroundColor: 'rgba(0, 0, 0, 0)' },
         },
-        // Más ancho para que se lea "Dom" completo y no "Do…".
+        // Encabezado: más ancho para que se lea "Dom" completo y, en pantalla baja, más apretado.
         'stylesheet.calendar.header': {
-          dayHeader: { marginTop: 2, marginBottom: 7, width: TAM_DIA + 6, textAlign: 'center', fontSize: 16, color: '#3F3F3F' },
+          header: { flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 10, paddingRight: 10, marginTop: compacto ? 2 : 6, alignItems: 'center' },
+          monthText: { fontSize: compacto ? 20 : 23, color: '#1F1F1F', margin: compacto ? 2 : 10 },
+          week: { marginTop: compacto ? 2 : 7, flexDirection: 'row', justifyContent: 'space-around' },
+          dayHeader: { marginTop: 2, marginBottom: compacto ? 2 : 7, width: TAM_DIA + 6, textAlign: 'center', fontSize: compacto ? 14 : 16, color: '#3F3F3F' },
         },
       }
     : temaBase;
@@ -527,19 +541,24 @@ export default function Calendario() {
 
       <View style={esAncho ? styles.cuerpoAncho : styles.cuerpo}>
       {/* El calendario queda FIJO: solo se desliza la lista de turnos. */}
-      <View
+      {/* En pantalla ancha, si la ventana es TAN baja que ni apretando cabe, el calendario se
+          desliza dentro de su columna en vez de quedar cortado. */}
+      <Envoltorio
         style={esAncho ? [styles.colCalendario, { width: anchoColCalendario }] : null}
-        onLayout={esAncho ? (e) => setAlturaCalendario(e.nativeEvent.layout.height) : undefined}
+        onLayout={esAncho ? (e: any) => setAlturaCalendario(e.nativeEvent.layout.height) : undefined}
+        {...(esAncho ? { showsVerticalScrollIndicator: false } : {})}
       >
       <Calendar
+        key={`${TAM_DIA}-${margenRenglon}-${compacto}-${esAncho}`}
         showSixWeeks={esAncho}
-        current={fechaDeHoy()}
+        current={mesVisible}
+        onMonthChange={(m) => setMesVisible(m.dateString)}
         markedDates={diasMarcados}
         onDayPress={(dia) => alTocarDia(dia.dateString)}
         onDayLongPress={(dia) => abrirFormulario(dia.dateString)}
         theme={temaCalendario}
       />
-      </View>
+      </Envoltorio>
 
       <View style={esAncho ? styles.colTurnos : styles.colTurnosMovil}>
       {/* En celular el buscador va aquí, arriba del texto de ayuda. */}

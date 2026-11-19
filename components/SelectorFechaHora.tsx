@@ -125,7 +125,8 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
       {/* ---- Calendario para la fecha ---- */}
       <Modal visible={verCalendario} transparent animationType="fade" onRequestClose={() => setVerCalendario(false)}>
         <View style={styles.fondo}>
-          <View style={[styles.caja, { backgroundColor: tema.bar }]}>
+          <View style={[styles.caja, Platform.OS === 'web' ? styles.cajaWeb : null, { backgroundColor: tema.bar, maxHeight: alturaVentana - 40 }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
             <Text style={styles.titulo}>Tocá el día del turno</Text>
             {Platform.OS === 'web' && (
               <View style={{ marginBottom: 6 }}>
@@ -191,6 +192,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
             <TouchableOpacity onPress={() => setVerCalendario(false)} style={styles.enlace}>
               <Text style={styles.textoEnlace}>Cancelar</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
