@@ -473,9 +473,57 @@ export default function Calendario() {
       }
     : temaBase;
 
+  // Buscador (mismo estilo que el de Docs). En pantalla ancha va en la fila de arriba, a la altura
+  // de "Estás viendo a" y empezando donde empiezan los turnos; en celular, arriba del texto de ayuda.
+  const cajaBuscador = (
+  <View
+    style={[
+      styles.buscador,
+      esAncho ? styles.buscadorAncho : null,
+      { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
+    ]}
+  >
+    <Ionicons name="search-outline" size={18} color="#1F1F1F" />
+    <TextInput
+      style={[styles.buscadorInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
+      placeholder="Buscar turno"
+      placeholderTextColor="#5F5F5F"
+      value={busqueda}
+      onChangeText={(texto) => {
+        setBusqueda(texto);
+        if (texto.trim()) setDiaSeleccionado(null); // buscar es en todos los días
+      }}
+      autoCapitalize="none"
+      autoCorrect={false}
+      returnKeyType="search"
+      accessibilityLabel="Buscar turno"
+      accessibilityHint="Escribí el nombre del turno. Ejemplo: pediatra"
+    />
+    {busqueda.length > 0 && (
+      <TouchableOpacity
+        onPress={() => setBusqueda('')}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Borrar búsqueda"
+      >
+        <Ionicons name="close-circle" size={20} color="#3F3F3F" />
+      </TouchableOpacity>
+    )}
+  </View>
+  );
+
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      <SelectorHijo />
+      {esAncho ? (
+        <View style={styles.filaSuperior}>
+          <View style={{ width: anchoColCalendario }}>
+            <SelectorHijo />
+          </View>
+          {cajaBuscador}
+        </View>
+      ) : (
+        <SelectorHijo />
+      )}
 
       <View style={esAncho ? styles.cuerpoAncho : styles.cuerpo}>
       {/* El calendario queda FIJO: solo se desliza la lista de turnos. */}
@@ -494,40 +542,8 @@ export default function Calendario() {
       </View>
 
       <View style={esAncho ? styles.colTurnos : styles.colTurnosMovil}>
-      {/* Buscador: mismo estilo que el de Docs. Va arriba del texto de ayuda. */}
-      <View
-        style={[
-          styles.buscador,
-          { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
-        ]}
-      >
-        <Ionicons name="search-outline" size={18} color="#1F1F1F" />
-        <TextInput
-          style={[styles.buscadorInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
-          placeholder="Buscar turno"
-          placeholderTextColor="#5F5F5F"
-          value={busqueda}
-          onChangeText={(texto) => {
-            setBusqueda(texto);
-            if (texto.trim()) setDiaSeleccionado(null); // buscar es en todos los días
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          accessibilityLabel="Buscar turno"
-          accessibilityHint="Escribí el nombre del turno. Ejemplo: pediatra"
-        />
-        {busqueda.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setBusqueda('')}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel="Borrar búsqueda"
-          >
-            <Ionicons name="close-circle" size={20} color="#3F3F3F" />
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* En celular el buscador va aquí, arriba del texto de ayuda. */}
+      {!esAncho && cajaBuscador}
 
       {diaSeleccionado && (
         <TouchableOpacity onPress={() => setDiaSeleccionado(null)} style={styles.verTodos}>
@@ -814,6 +830,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     marginBottom: 4,
   },
+  // Pantalla ancha: fila de arriba = [selector de hijo (ancho del calendario)] [buscador].
+  filaSuperior: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
+  buscadorAncho: { flex: 1, marginBottom: 0 },
   buscadorInput: { flex: 1, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
