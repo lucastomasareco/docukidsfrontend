@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
@@ -96,6 +97,11 @@ export default function Calendario() {
   const [progresoBorrado, setProgresoBorrado] = useState<{ hechos: number; total: number } | null>(null);
 
   // Efecto "carrusel": las tarjetas se desvanecen al acercarse a los bordes de la lista.
+  // Pantalla ancha (PC / portátil): calendario a la izquierda y turnos a la derecha.
+  // En pantallas angostas (celular o ventana chica) queda la columna de siempre.
+  const { width: anchoPantalla } = useWindowDimensions();
+  const esAncho = anchoPantalla >= ANCHO_MINIMO_DOS_COLUMNAS;
+
   const scrollY = useRef(new Animated.Value(0)).current;
   const [alturaLista, setAlturaLista] = useState(0);
   const [alturas, setAlturas] = useState<Record<number, number>>({});
@@ -406,7 +412,9 @@ export default function Calendario() {
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <SelectorHijo />
 
-      {/* El calendario queda FIJO: solo se desliza la lista de turnos de abajo. */}
+      <View style={esAncho ? styles.cuerpoAncho : styles.cuerpo}>
+      {/* El calendario queda FIJO: solo se desliza la lista de turnos. */}
+      <View style={esAncho ? styles.colCalendario : null}>
       <Calendar
         current={fechaDeHoy()}
         markedDates={diasMarcados}
@@ -427,7 +435,9 @@ export default function Calendario() {
           textDayHeaderFontSize: 15,
         }}
       />
+      </View>
 
+      <View style={esAncho ? styles.colTurnos : styles.colTurnosMovil}>
       {diaSeleccionado && (
         <TouchableOpacity onPress={() => setDiaSeleccionado(null)} style={styles.verTodos}>
           <Text style={styles.verTodosTexto}>Mostrando solo el {fechaCorta(diaSeleccionado)} · Ver todos</Text>
@@ -602,6 +612,8 @@ export default function Calendario() {
           }}
         />
       </View>
+      </View>
+      </View>
 
       {mostrarFormulario && (
         <FormularioSuperior
@@ -678,8 +690,18 @@ export default function Calendario() {
   );
 }
 
+// Desde este ancho (en píxeles) se muestran dos columnas.
+const ANCHO_MINIMO_DOS_COLUMNAS = 900;
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 16 },
+  // Celular / pantalla angosta: una sola columna (como siempre).
+  cuerpo: { flex: 1 },
+  colTurnosMovil: { flex: 1 },
+  // PC / portátil: calendario | turnos, centrado y con un ancho máximo.
+  cuerpoAncho: { flex: 1, flexDirection: 'row', gap: 20, width: '100%', maxWidth: 1200, alignSelf: 'center', marginTop: 4 },
+  colCalendario: { width: 440, alignSelf: 'flex-start' },
+  colTurnos: { flex: 1, minWidth: 0 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
