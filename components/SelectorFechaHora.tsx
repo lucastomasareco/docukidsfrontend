@@ -33,6 +33,9 @@ function horaADate(hora: string): Date {
 export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambiarHora }: Props) {
   const { tema } = useTheme();
   const { height: alturaVentana } = useWindowDimensions();
+  // Alto que ocupa todo lo que NO es el círculo en la ventana de la hora (título, HH:MM, textos y botones).
+  // El reloj se achica solo si la pantalla es baja, para que todo quepa sin tener que deslizar.
+  const tamanoReloj = Math.max(170, Math.min(260, alturaVentana - 40 - 385));
   const [verCalendario, setVerCalendario] = useState(false);
   const [verHora, setVerHora] = useState(false);
   const [claveCalendario, setClaveCalendario] = useState(0);
@@ -260,7 +263,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
                         backgroundColor: '#FFFFFF',
                       },
                     })
-                  : <RelojCircular valor={horaWeb} onCambiar={setHoraWeb} colorPrincipal={tema.primary} />}
+                  : <RelojCircular valor={horaWeb} onCambiar={setHoraWeb} colorPrincipal={tema.primary} tamano={tamanoReloj} />}
               </View>
               <TouchableOpacity onPress={() => setHoraConTeclado((v) => !v)} style={styles.enlace}>
                 <Text style={styles.textoEnlace}>{horaConTeclado ? 'Usar el reloj' : 'Escribir la hora con el teclado'}</Text>

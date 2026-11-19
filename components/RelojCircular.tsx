@@ -14,23 +14,30 @@ type Props = {
   valor: string; // 'HH:MM' (24 hs)
   onCambiar: (nuevo: string) => void;
   colorPrincipal: string;
+  tamano?: number; // diámetro del círculo en píxeles (260 por defecto); se achica en pantallas bajas
 };
 
-const TAMANO = 260; // alto y ancho del círculo, en píxeles
-const CENTRO = TAMANO / 2;
-const RADIO_EXTERNO = 100; // Círculo externo (1-12, 0)
-const RADIO_INTERNO = 68;  // Círculo interno (13-23, 12)
-const BURBUJA = 38; // diámetro de cada número
+// Medidas base (para un círculo de 260 px). Todo se escala según la prop `tamano`.
+const TAMANO_BASE = 260;
 
 const dos = (n: number) => String(n).padStart(2, '0')
 
 // Posición (x, y) dentro del círculo de un ángulo dado.
-function posicion(grados: number, radio: number) {
+function posicionEn(grados: number, radio: number, centro: number) {
   const rad = (grados * Math.PI) / 180;
-  return { x: CENTRO + radio * Math.sin(rad), y: CENTRO - radio * Math.cos(rad) };
+  return { x: centro + radio * Math.sin(rad), y: centro - radio * Math.cos(rad) };
 }
 
-export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Props) {
+export default function RelojCircular({ valor, onCambiar, colorPrincipal, tamano = TAMANO_BASE }: Props) {
+  // Factor de escala: 1 = tamaño normal; menos de 1 = reloj más chico (pantalla baja).
+  const k = tamano / TAMANO_BASE;
+  const TAMANO = tamano; // alto y ancho del círculo, en píxeles
+  const CENTRO = TAMANO / 2;
+  const RADIO_EXTERNO = 100 * k; // Círculo externo (1-12, 0)
+  const RADIO_INTERNO = 68 * k; // Círculo interno (13-23, 12)
+  const BURBUJA = 38 * k; // diámetro de cada número
+  const posicion = (grados: number, radio: number) => posicionEn(grados, radio, CENTRO);
+
   const [modo, setModo] = useState<Modo>('hora');
 
   const [hh, mm] = valor.split(':').map(Number);
@@ -106,7 +113,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
           height: BURBUJA,
           lineHeight: `${BURBUJA}px`,
           textAlign: 'center',
-          fontSize: 15,
+          fontSize: 15 * k,
           color: '#1F1F1F',
           pointerEvents: 'none',
         },
@@ -122,7 +129,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
           height: BURBUJA,
           lineHeight: `${BURBUJA}px`,
           textAlign: 'center',
-          fontSize: 13,
+          fontSize: 13 * k,
           color: '#333333',
           pointerEvents: 'none',
         },
@@ -145,7 +152,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
         height: BURBUJA,
         lineHeight: `${BURBUJA}px`,
         textAlign: 'center',
-        fontSize: 15,
+        fontSize: 15 * k,
         color: '#1F1F1F',
         pointerEvents: 'none',
       },
@@ -181,7 +188,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
     // ---- Cabecera: HH : MM  y AM / PM ----
     h(
       'div',
-      { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 } },
+      { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: k < 1 ? 8 : 14 } },
       h('div', { style: boton(modo === 'hora'), onClick: () => setModo('hora') }, dos(h24)),
       h('div', { style: { fontSize: 38, color: '#1F1F1F' } }, ':'),
       h('div', { style: boton(modo === 'minuto'), onClick: () => setModo('minuto') }, dos(minuto))
@@ -250,7 +257,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
             lineHeight: `${BURBUJA}px`,
             borderRadius: '50%',
             textAlign: 'center',
-            fontSize: 17,
+            fontSize: 17 * k,
             fontWeight: 700,
             color: '#1F1F1F',
             backgroundColor: colorPrincipal,
