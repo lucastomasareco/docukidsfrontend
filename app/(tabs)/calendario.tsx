@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
+import { normalizar } from '../../lib/busqueda';
 import { colorConOpacidad, esTurnoPasado, fechaCorta, fechaDeHoy } from '../../lib/fechas';
 
 // Nombres de meses/días en español para el calendario (react-native-calendars
@@ -82,6 +84,10 @@ export default function Calendario() {
   const [refrescando, setRefrescando] = useState(false); // pull-to-refresh
   const [error, setError] = useState<ErrorAmigable | null>(null);
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
+  // Buscador de turnos: lo escrito. Con algo escrito, la lista muestra solo lo que coincide.
+  const [busqueda, setBusqueda] = useState('');
+  // Al cambiar de hijo se vacía el buscador: los turnos son otros.
+  useEffect(() => setBusqueda(''), [seleccionadoId]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [tituloNuevo, setTituloNuevo] = useState('');
   const [fechaNueva, setFechaNueva] = useState(fechaDeHoy());
@@ -182,9 +188,25 @@ export default function Calendario() {
     };
   }, [turnos]);
 
-  // Lista que se dibuja: si hay un día tocado, solo los turnos de ese día (también si es
-  // un día pasado). Si no: próximos, luego la fila de botones y, si se pidió, los pasados.
+  // Buscador. No distingue mayúsculas ni tildes. Cada palabra escrita debe estar en el título
+  // o en las notas del turno ("pediatra control" = el control del pediatra).
+  const palabrasBusqueda = useMemo(() => normalizar(busqueda).split(/\s+/).filter(Boolean), [busqueda]);
+  const buscando = palabrasBusqueda.length > 0;
+  const coincide = useCallback(
+    (t: Turno) => {
+      const texto = normalizar(`${t.title} ${t.notes ?? ''}`);
+      return palabrasBusqueda.every((p) => texto.includes(p));
+    },
+    [palabrasBusqueda]
+  );
+
+  // Lista que se dibuja:
+  //  - buscando: SIEMPRE primero los turnos que vienen (del más cercano al más lejano) y debajo
+  //    los pasados (del más reciente al más viejo), sin necesidad de abrir "Ver turnos pasados";
+  //  - si hay un día tocado, solo los turnos de ese día (también si es un día pasado);
+  //  - si no: próximos, luego la fila de botones y, si se pidió, los pasados.
   const filas: Fila[] = useMemo(() => {
+    if (buscando) return [...proximos.filter(coincide), ...pasados.filter(coincide)];
     if (diaSeleccionado) return turnos.filter((t) => t.date === diaSeleccionado).sort(compararTurnos);
     const lista: Fila[] = [...proximos];
     if (pasados.length > 0) {
@@ -192,7 +214,7 @@ export default function Calendario() {
       if (mostrarPasados) lista.push(...pasados);
     }
     return lista;
-  }, [turnos, diaSeleccionado, proximos, pasados, mostrarPasados]);
+  }, [turnos, buscando, coincide, diaSeleccionado, proximos, pasados, mostrarPasados]);
 
   // Formulario de turno NUEVO. Sin fecha: usa el día filtrado o, si no hay, hoy.
   const abrirFormulario = (fecha?: string) => {
@@ -472,6 +494,41 @@ export default function Calendario() {
       </View>
 
       <View style={esAncho ? styles.colTurnos : styles.colTurnosMovil}>
+      {/* Buscador: mismo estilo que el de Docs. Va arriba del texto de ayuda. */}
+      <View
+        style={[
+          styles.buscador,
+          { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
+        ]}
+      >
+        <Ionicons name="search-outline" size={18} color="#1F1F1F" />
+        <TextInput
+          style={[styles.buscadorInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
+          placeholder="Buscar turno"
+          placeholderTextColor="#5F5F5F"
+          value={busqueda}
+          onChangeText={(texto) => {
+            setBusqueda(texto);
+            if (texto.trim()) setDiaSeleccionado(null); // buscar es en todos los días
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          accessibilityLabel="Buscar turno"
+          accessibilityHint="Escribí el nombre del turno. Ejemplo: pediatra"
+        />
+        {busqueda.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setBusqueda('')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Borrar búsqueda"
+          >
+            <Ionicons name="close-circle" size={20} color="#3F3F3F" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {diaSeleccionado && (
         <TouchableOpacity onPress={() => setDiaSeleccionado(null)} style={styles.verTodos}>
           <Text style={styles.verTodosTexto}>Mostrando solo el {fechaCorta(diaSeleccionado)} · Ver todos</Text>
@@ -502,7 +559,7 @@ export default function Calendario() {
           }
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
           ListHeaderComponent={
-            !cargando && !error && !diaSeleccionado && proximos.length === 0 && pasados.length > 0 ? (
+            !cargando && !error && !buscando && !diaSeleccionado && proximos.length === 0 && pasados.length > 0 ? (
               <EstadoVacio
                 variante="compacta"
                 icono="calendar-outline"
@@ -522,6 +579,15 @@ export default function Calendario() {
               <View style={styles.zonaError}>
                 <TarjetaError error={error} onReintentar={() => cargarTurnos()} />
               </View>
+            ) : buscando ? (
+              <EstadoVacio
+                variante="compacta"
+                icono="search-outline"
+                titulo="No encontramos ese turno"
+                mensaje={`Nada coincide con "${busqueda.trim()}" en los turnos de ${hijoSeleccionado?.name}. Puede que esté en otro hijo: cambialo arriba, en "Estás viendo a".`}
+                etiquetaAccion="Borrar búsqueda"
+                onAccion={() => setBusqueda('')}
+              />
             ) : (
               diaSeleccionado ? (
                 <EstadoVacio
@@ -738,6 +804,17 @@ const styles = StyleSheet.create({
   // (el botón mide 56 y está a 30 del borde; el contenedor ya deja 16 de margen).
   colCalendario: { width: 440, alignSelf: 'stretch', marginBottom: 45, overflow: 'hidden', borderRadius: 8 },
   colTurnos: { flex: 1, minWidth: 0 },
+  buscador: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginBottom: 4,
+  },
+  buscadorInput: { flex: 1, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
