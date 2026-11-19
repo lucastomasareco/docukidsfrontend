@@ -1,5 +1,5 @@
 import { useState, createElement } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../context/ThemeContext';
@@ -32,6 +32,7 @@ function horaADate(hora: string): Date {
 
 export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambiarHora }: Props) {
   const { tema } = useTheme();
+  const { height: alturaVentana } = useWindowDimensions();
   const [verCalendario, setVerCalendario] = useState(false);
   const [verHora, setVerHora] = useState(false);
   const [claveCalendario, setClaveCalendario] = useState(0);
@@ -240,7 +241,8 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
       {Platform.OS === 'web' && (
         <Modal visible={verHora} transparent animationType="fade" onRequestClose={() => setVerHora(false)}>
           <View style={styles.fondo}>
-            <View style={[styles.caja, { backgroundColor: tema.bar }]}>
+            <View style={[styles.caja, styles.cajaWeb, { backgroundColor: tema.bar, maxHeight: alturaVentana - 40 }]}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
               <Text style={styles.titulo}>Elegí la hora</Text>
               <View style={{ alignItems: 'center', marginVertical: 12 }}>
                 {horaConTeclado
@@ -275,6 +277,7 @@ export default function SelectorFechaHora({ fecha, onCambiarFecha, hora, onCambi
               <TouchableOpacity onPress={() => setVerHora(false)} style={styles.enlace}>
                 <Text style={styles.textoEnlace}>Cancelar</Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -293,6 +296,8 @@ const styles = StyleSheet.create({
   botonQuitarTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
   fondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   caja: { borderRadius: 16, padding: 20, elevation: 8 },
+  // Solo web: que no se estire por toda la pantalla en un monitor ancho.
+  cajaWeb: { width: '100%', maxWidth: 520, alignSelf: 'center' },
   titulo: { fontSize: 20, color: '#1F1F1F', textAlign: 'center', marginBottom: 8 },
   filaAnio: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 },
   botonAnio: { borderWidth: 2, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },

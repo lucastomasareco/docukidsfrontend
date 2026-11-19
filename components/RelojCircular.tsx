@@ -69,7 +69,8 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
 
   // Cálculo de la posición de la manecilla
   const indiceActual = modo === 'hora' ? (h24 === 0 || h24 === 12 ? 0 : h24 % 12) : Math.round(minuto / 5) % 12;
-  const anguloMano = indiceActual * 30;
+  // En minutos la manecilla apunta al minuto exacto (cada minuto son 6°); en horas, a cada número.
+  const anguloMano = modo === 'hora' ? indiceActual * 30 : minuto * 6;
   
   let radioMano = RADIO_EXTERNO;
   if (modo === 'hora') {
@@ -78,6 +79,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
   }
   
   const punta = posicion(anguloMano, modo === 'hora' ? radioMano : RADIO_EXTERNO);
+  const largoMano = modo === 'hora' ? radioMano : RADIO_EXTERNO; // la línea llega justo hasta la burbuja
   const textoMano = modo === 'hora' ? dos(h24) : dos(minuto);
 
   // Los números del círculo: 1..11 y 12 a 23 para la hora, 00,05,...,55 para los minutos.
@@ -206,6 +208,8 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
           if (modo === 'hora') setModo('minuto');
         },
       },
+      // números del círculo (van PRIMERO para quedar debajo de la manecilla y la burbuja)
+      modo === 'hora' ? numerosHoras : numerosMinutos,
       // punto del centro
       h('div', {
         style: {
@@ -224,9 +228,9 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
         style: {
           position: 'absolute',
           left: CENTRO - 1,
-          top: CENTRO - RADIO_EXTERNO,
+          top: CENTRO - largoMano,
           width: 2,
-          height: RADIO_EXTERNO,
+          height: largoMano,
           backgroundColor: '#1F1F1F',
           transformOrigin: '50% 100%',
           transform: `rotate(${anguloMano}deg)`,
@@ -254,8 +258,7 @@ export default function RelojCircular({ valor, onCambiar, colorPrincipal }: Prop
           },
         },
         textoMano
-      ),
-      modo === 'hora' ? numerosHoras : numerosMinutos
+      )
     ),
     h(
       'div',
