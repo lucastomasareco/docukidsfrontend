@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   ayuda: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', maxWidth: 260, marginTop: -8 },
   ayudaAncha: { fontSize: 14, color: '#3F3F3F', textAlign: 'center', maxWidth: 340, marginTop: -4 },
-  tarjetaFamilia: { alignSelf: 'stretch', maxWidth: 420, borderWidth: 2, borderRadius: 12, padding: 16, gap: 10 },
+  tarjetaFamilia: { alignSelf: 'center', width: '100%', maxWidth: 420, borderWidth: 2, borderRadius: 12, padding: 16, gap: 10 },
   familiaResumen: { fontSize: 16, fontWeight: 'bold', color: '#1F1F1F' },
   familiaDetalle: { fontSize: 14, color: '#3F3F3F' },
   bloqueInvitar: { gap: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#ddd', paddingTop: 12 },
