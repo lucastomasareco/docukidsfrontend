@@ -412,11 +412,11 @@ export default function Calendario() {
 
   // Medidas del calendario en pantalla ancha: más grande y ajustado al alto disponible.
   const anchoColCalendario = Math.max(440, Math.min(580, Math.round(anchoPantalla * 0.42)));
-  const TAM_DIA = 44; // lado de cada casilla de día
   const GASTO_FIJO = 105; // encabezado (mes + días de la semana) y márgenes, aprox.
-  const margenRenglon = alturaCalendario
-    ? Math.max(4, Math.min(28, Math.round(((alturaCalendario - GASTO_FIJO) / 6 - TAM_DIA) / 2)))
-    : 8;
+  // Alto que le toca a cada uno de los 6 renglones; la casilla se achica sola si falta espacio.
+  const altoRenglon = alturaCalendario ? (alturaCalendario - GASTO_FIJO) / 6 : 60;
+  const TAM_DIA = Math.max(28, Math.min(44, Math.floor(altoRenglon - 8))); // lado de cada casilla de día
+  const margenRenglon = Math.max(1, Math.min(28, Math.floor((altoRenglon - TAM_DIA) / 2)));
   const temaBase = {
     todayTextColor: '#1F1F1F',
     todayBackgroundColor: tema.bar,
@@ -442,7 +442,7 @@ export default function Calendario() {
           base: { width: TAM_DIA, height: TAM_DIA, alignItems: 'center' },
           today: { backgroundColor: tema.bar, borderRadius: TAM_DIA / 2 },
           selected: { backgroundColor: tema.primary, borderRadius: TAM_DIA / 2 },
-          text: { marginTop: 10, fontSize: 20, color: '#1F1F1F', backgroundColor: 'rgba(0, 0, 0, 0)' },
+          text: { marginTop: Math.round(TAM_DIA / 4), fontSize: TAM_DIA < 40 ? 17 : 20, color: '#1F1F1F', backgroundColor: 'rgba(0, 0, 0, 0)' },
         },
         // Más ancho para que se lea "Dom" completo y no "Do…".
         'stylesheet.calendar.header': {
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   cuerpoAncho: { flex: 1, flexDirection: 'row', gap: 20, marginTop: 8 },
   // Se estira hacia abajo hasta la línea de arriba del botón +
   // (el botón mide 56 y está a 30 del borde; el contenedor ya deja 16 de margen).
-  colCalendario: { width: 440, alignSelf: 'stretch', marginBottom: 70, overflow: 'hidden', borderRadius: 8 },
+  colCalendario: { width: 440, alignSelf: 'stretch', marginBottom: 45, overflow: 'hidden', borderRadius: 8 },
   colTurnos: { flex: 1, minWidth: 0 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
