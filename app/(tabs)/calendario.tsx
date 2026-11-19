@@ -101,6 +101,8 @@ export default function Calendario() {
   // En pantallas angostas (celular o ventana chica) queda la columna de siempre.
   const { width: anchoPantalla } = useWindowDimensions();
   const esAncho = anchoPantalla >= ANCHO_MINIMO_DOS_COLUMNAS;
+  // Altura real de la columna del calendario (para repartir los renglones y que llegue hasta el botón +).
+  const [alturaCalendario, setAlturaCalendario] = useState(0);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const [alturaLista, setAlturaLista] = useState(0);
@@ -408,32 +410,64 @@ export default function Calendario() {
     );
   }
 
+  // Medidas del calendario en pantalla ancha: más grande y ajustado al alto disponible.
+  const anchoColCalendario = Math.max(440, Math.min(580, Math.round(anchoPantalla * 0.42)));
+  const TAM_DIA = 44; // lado de cada casilla de día
+  const GASTO_FIJO = 105; // encabezado (mes + días de la semana) y márgenes, aprox.
+  const margenRenglon = alturaCalendario
+    ? Math.max(4, Math.min(28, Math.round(((alturaCalendario - GASTO_FIJO) / 6 - TAM_DIA) / 2)))
+    : 8;
+  const temaBase = {
+    todayTextColor: '#1F1F1F',
+    todayBackgroundColor: tema.bar,
+    dayTextColor: '#1F1F1F',
+    monthTextColor: '#1F1F1F',
+    textSectionTitleColor: '#3F3F3F',
+    textDisabledColor: '#8A8A8A',
+    selectedDayBackgroundColor: tema.primary,
+    selectedDayTextColor: '#1F1F1F',
+    arrowColor: '#1F1F1F',
+    textDayFontSize: 17,
+    textMonthFontSize: 19,
+    textDayHeaderFontSize: 15,
+  };
+  const temaCalendario: any = esAncho
+    ? {
+        ...temaBase,
+        textDayFontSize: 20,
+        textMonthFontSize: 23,
+        textDayHeaderFontSize: 16,
+        weekVerticalMargin: margenRenglon,
+        'stylesheet.day.basic': {
+          base: { width: TAM_DIA, height: TAM_DIA, alignItems: 'center' },
+          today: { backgroundColor: tema.bar, borderRadius: TAM_DIA / 2 },
+          selected: { backgroundColor: tema.primary, borderRadius: TAM_DIA / 2 },
+          text: { marginTop: 10, fontSize: 20, color: '#1F1F1F', backgroundColor: 'rgba(0, 0, 0, 0)' },
+        },
+        // Más ancho para que se lea "Dom" completo y no "Do…".
+        'stylesheet.calendar.header': {
+          dayHeader: { marginTop: 2, marginBottom: 7, width: TAM_DIA + 6, textAlign: 'center', fontSize: 16, color: '#3F3F3F' },
+        },
+      }
+    : temaBase;
+
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <SelectorHijo />
 
       <View style={esAncho ? styles.cuerpoAncho : styles.cuerpo}>
       {/* El calendario queda FIJO: solo se desliza la lista de turnos. */}
-      <View style={esAncho ? styles.colCalendario : null}>
+      <View
+        style={esAncho ? [styles.colCalendario, { width: anchoColCalendario }] : null}
+        onLayout={esAncho ? (e) => setAlturaCalendario(e.nativeEvent.layout.height) : undefined}
+      >
       <Calendar
+        showSixWeeks={esAncho}
         current={fechaDeHoy()}
         markedDates={diasMarcados}
         onDayPress={(dia) => alTocarDia(dia.dateString)}
         onDayLongPress={(dia) => abrirFormulario(dia.dateString)}
-        theme={{
-          todayTextColor: '#1F1F1F',
-          todayBackgroundColor: tema.bar,
-          dayTextColor: '#1F1F1F',
-          monthTextColor: '#1F1F1F',
-          textSectionTitleColor: '#3F3F3F',
-          textDisabledColor: '#8A8A8A',
-          selectedDayBackgroundColor: tema.primary,
-          selectedDayTextColor: '#1F1F1F',
-          arrowColor: '#1F1F1F',
-          textDayFontSize: 17,
-          textMonthFontSize: 19,
-          textDayHeaderFontSize: 15,
-        }}
+        theme={temaCalendario}
       />
       </View>
 
@@ -699,8 +733,10 @@ const styles = StyleSheet.create({
   cuerpo: { flex: 1 },
   colTurnosMovil: { flex: 1 },
   // PC / portátil: calendario | turnos, centrado y con un ancho máximo.
-  cuerpoAncho: { flex: 1, flexDirection: 'row', gap: 20, width: '100%', maxWidth: 1200, alignSelf: 'center', marginTop: 4 },
-  colCalendario: { width: 440, alignSelf: 'flex-start' },
+  cuerpoAncho: { flex: 1, flexDirection: 'row', gap: 20, marginTop: 8 },
+  // Se estira hacia abajo hasta la línea de arriba del botón +
+  // (el botón mide 56 y está a 30 del borde; el contenedor ya deja 16 de margen).
+  colCalendario: { width: 440, alignSelf: 'stretch', marginBottom: 70, overflow: 'hidden', borderRadius: 8 },
   colTurnos: { flex: 1, minWidth: 0 },
   pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
