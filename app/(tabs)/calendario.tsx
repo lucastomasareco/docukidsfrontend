@@ -26,6 +26,17 @@ import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
+import SelectorLugar from '../../components/SelectorLugar';
+import VentanaMapa from '../../components/VentanaMapa';
+import {
+  camposParaBackend,
+  CamposLugarTurno,
+  LUGAR_VACIO,
+  Lugar,
+  lugarDeTurno,
+  tieneLugar,
+  tituloDeLugar,
+} from '../../lib/lugares';
 import { normalizar } from '../../lib/busqueda';
 import { colorConOpacidad, esTurnoPasado, fechaCorta, fechaDeHoy } from '../../lib/fechas';
 
@@ -43,7 +54,7 @@ LocaleConfig.locales['es'] = {
 };
 LocaleConfig.defaultLocale = 'es';
 
-type Turno = {
+type Turno = CamposLugarTurno & {
   id: number;
   title: string;
   date: string; // 'YYYY-MM-DD'
@@ -97,6 +108,9 @@ export default function Calendario() {
   const [fechaNueva, setFechaNueva] = useState(fechaDeHoy());
   const [horaNueva, setHoraNueva] = useState('');
   const [notasNuevas, setNotasNuevas] = useState('');
+  // Lugar del turno (v2.7) y turno cuyo mapa se está mirando.
+  const [lugarNuevo, setLugarNuevo] = useState<Lugar>(LUGAR_VACIO);
+  const [turnoConMapa, setTurnoConMapa] = useState<Turno | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   // null = formulario de turno NUEVO; con un turno = formulario de EDICIÓN.
@@ -198,7 +212,7 @@ export default function Calendario() {
   const buscando = palabrasBusqueda.length > 0;
   const coincide = useCallback(
     (t: Turno) => {
-      const texto = normalizar(`${t.title} ${t.notes ?? ''}`);
+      const texto = normalizar(`${t.title} ${t.notes ?? ''} ${t.location_name ?? ''} ${t.address ?? ''}`);
       return palabrasBusqueda.every((p) => texto.includes(p));
     },
     [palabrasBusqueda]
@@ -256,6 +270,7 @@ export default function Calendario() {
     setFechaNueva(turno.date);
     setHoraNueva(turno.time ? horaCorta(turno.time) : '');
     setNotasNuevas(turno.notes ?? '');
+    setLugarNuevo(lugarDeTurno(turno));
     setMostrarFormulario(true);
   };
 
@@ -265,6 +280,7 @@ export default function Calendario() {
     setTituloNuevo('');
     setHoraNueva('');
     setNotasNuevas('');
+    setLugarNuevo(LUGAR_VACIO);
   };
 
   const crearTurno = async () => {
@@ -282,6 +298,7 @@ export default function Calendario() {
           date: fechaNueva,
           time: horaNueva || null, // sin hora = evento de todo el día
           notes: notasNuevas.trim() || null,
+          ...camposParaBackend(lugarNuevo, true), // null en los cuatro = quitar el lugar
         });
       } else {
         await api.post('/appointments', {
@@ -290,6 +307,7 @@ export default function Calendario() {
           date: fechaNueva,
           time: horaNueva || undefined, // sin hora = evento de todo el día
           notes: notasNuevas.trim() || undefined,
+          ...camposParaBackend(lugarNuevo, false),
         });
       }
       cerrarFormulario();
@@ -741,6 +759,20 @@ export default function Calendario() {
                       {item.time ? horaCorta(item.time) : 'Todo el día'}
                       {item.notes ? ` · ${item.notes}` : ''}
                     </Text>
+                    {tieneLugar(lugarDeTurno(item)) && (
+                      <TouchableOpacity
+                        style={styles.lugarFila}
+                        onPress={() => setTurnoConMapa(item)}
+                        activeOpacity={0.6}
+                        accessibilityLabel={`Ver en el mapa: ${tituloDeLugar(lugarDeTurno(item))}`}
+                      >
+                        <Ionicons name="location" size={16} color="#1F1F1F" />
+                        <Text style={styles.lugarTexto} numberOfLines={1}>
+                          {tituloDeLugar(lugarDeTurno(item))}
+                        </Text>
+                        <Text style={styles.lugarVer}>Ver mapa</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
                 )}
@@ -751,6 +783,10 @@ export default function Calendario() {
       </View>
       </View>
       </View>
+
+      {turnoConMapa && (
+        <VentanaMapa lugar={lugarDeTurno(turnoConMapa)} onCerrar={() => setTurnoConMapa(null)} />
+      )}
 
       {mostrarFormulario && (
         <FormularioSuperior
@@ -772,6 +808,7 @@ export default function Calendario() {
             hora={horaNueva}
             onCambiarHora={setHoraNueva}
           />
+          <SelectorLugar lugar={lugarNuevo} onCambiar={setLugarNuevo} deshabilitado={guardando || eliminando} />
           <TextInput
             placeholderTextColor="#5F5F5F"
             style={styles.input}
@@ -884,6 +921,9 @@ const styles = StyleSheet.create({
   },
   fechaBoxTexto: { color: '#1F1F1F', fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
   fechaBoxMes: { color: '#1F1F1F', fontSize: 12, fontWeight: '600' },
+  lugarFila: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, paddingVertical: 2 },
+  lugarTexto: { flexShrink: 1, fontSize: 14, color: '#1F1F1F', fontWeight: '600' },
+  lugarVer: { fontSize: 14, color: '#0D47A1', textDecorationLine: 'underline', marginLeft: 4 },
   zonaPasados: { marginTop: 10, marginBottom: 2, gap: 8 },
   // Igual que EncabezadoCarpeta de Docs: bajo, con borde y tinte del color.
   botonPasados: {

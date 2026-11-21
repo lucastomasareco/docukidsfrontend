@@ -6,7 +6,7 @@ export type PantallaAyuda = 'docs' | 'calendario' | 'hijos' | 'ajustes';
 export type ConsejoAyuda = {
   icono: 'cloud-upload-outline' | 'search-outline' | 'reorder-three-outline' | 'folder-open-outline' | 'hand-left-outline' | 'color-palette-outline' | 'calendar-outline'
     | 'add-circle-outline' | 'people-outline' | 'logo-google' | 'lock-closed-outline' | 'mail-outline'
-    | 'checkmark-circle-outline' | 'trash-outline'
+    | 'checkmark-circle-outline' | 'trash-outline' | 'location-outline'
     | 'person-add-outline' | 'key-outline' | 'exit-outline';
   texto: string;
 };
@@ -41,6 +41,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'calendar-outline', texto: 'Tocá un día con turnos para ver solo los de ese día. Tocalo de nuevo para ver todos.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un turno para editarlo o borrarlo.' },
       { icono: 'mail-outline', texto: 'Los turnos también se guardan en tu Google Calendar.' },
+      { icono: 'location-outline', texto: 'Al crear o editar un turno podés agregar el lugar: escribí la dirección y tocá Buscar, o tocá el mapa para marcarlo. En la lista, tocá Ver mapa para ver dónde es y Cómo llegar para abrir Google Maps. Si estás en una familia, los dos ven el mismo lugar.' },
       { icono: 'trash-outline', texto: 'Arriba ves los turnos de hoy y los próximos. Los anteriores quedan guardados: tocá Ver turnos pasados para consultarlos o Borrar turnos viejos para limpiarlos.' },
     ],
   },
