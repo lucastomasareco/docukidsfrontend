@@ -23,6 +23,7 @@ import FormularioSuperior from '../../components/FormularioSuperior';
 import TarjetaRecuperarDatos from '../../components/TarjetaRecuperarDatos';
 import SelectorAvatar from '../../components/SelectorAvatar';
 import AsaArrastre from '../../components/AsaArrastre';
+import UltimosLugares from '../../components/UltimosLugares';
 import type { AvatarElegido } from '../../lib/avatar';
 import { colorConOpacidad } from '../../lib/fechas';
 
@@ -73,6 +74,8 @@ export default function Hijos() {
   const [eliminando, setEliminando] = useState(false);
   const [hijoEditando, setHijoEditando] = useState<Hijo | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  // Hijo cuyos "Últimos lugares" se están mirando (v2.7).
+  const [hijoLugares, setHijoLugares] = useState<Hijo | null>(null);
   // Foto elegida para el hijo nuevo (issue #36), ya reducida y lista para enviar.
   const [avatarNuevo, setAvatarNuevo] = useState<AvatarElegido | null>(null);
   // Al editar: true si la persona tocó "Quitar" para borrar la foto que ya tenía.
@@ -468,6 +471,14 @@ export default function Hijos() {
                           {item.birth_date && <Text style={styles.fecha}>Nacido: {item.birth_date}</Text>}
                         </View>
                         {seleccionado && <Text style={[styles.check, { color: tema.primary }]}>✓</Text>}
+                        <TouchableOpacity
+                          style={styles.botonLugares}
+                          onPress={() => setHijoLugares(item)}
+                          activeOpacity={0.6}
+                          accessibilityLabel={`Últimos lugares de ${item.name}`}
+                        >
+                          <Ionicons name="location-outline" size={24} color="#1F1F1F" />
+                        </TouchableOpacity>
                         {puedeArrastrar && (
                           <AsaArrastre
                             onInicio={() => iniciarArrastre(item)}
@@ -510,6 +521,9 @@ export default function Hijos() {
             )}
           </View>
         </>
+      )}
+      {hijoLugares && (
+        <UltimosLugares hijoId={hijoLugares.id} hijoNombre={hijoLugares.name} onCerrar={() => setHijoLugares(null)} />
       )}
       {mostrarFormulario && (
         <FormularioSuperior onCerrar={hijoEditando && !guardando && !eliminando ? cerrarFormulario : undefined}>
@@ -631,6 +645,7 @@ const styles = StyleSheet.create({
   avatarSeleccionado: { backgroundColor: '#1976d2' },
   avatarTexto: { color: '#1F1F1F', fontWeight: 'bold', fontSize: 20 },
   nombre: { fontSize: 18, fontWeight: '600' },
+  botonLugares: { padding: 6, marginLeft: 4 },
   fecha: { fontSize: 15, color: '#3F3F3F' },
   check: { marginLeft: 'auto', fontSize: 20, color: '#1976d2', fontWeight: 'bold' },
   formulario: {

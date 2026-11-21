@@ -2,6 +2,7 @@
 // Habla con el backend (/places/search y /places/reverse), que consulta Nominatim
 // (el buscador de OpenStreetMap). Este archivo no importa nada de React Native.
 import { api } from './api';
+import { esTurnoPasado } from './fechas';
 
 export type Lugar = {
   nombre: string;
@@ -79,4 +80,64 @@ export function mensajeDeBuscador(e: any): string | null {
   const detalle = e?.response?.data?.detail;
   if ((estado === 429 || estado === 502) && typeof detalle === 'string') return detalle;
   return null;
+}
+
+// ---------- Últimos lugares de un hijo (v2.7, etapa 2) ----------
+
+export type TurnoConLugar = CamposLugarTurno & {
+  id: number;
+  title: string;
+  date: string; // 'YYYY-MM-DD'
+  time: string | null;
+};
+
+export type UltimoLugar = {
+  lugar: Lugar;
+  // El turno más reciente que se hizo en ese lugar.
+  turnoTitulo: string;
+  fecha: string; // 'YYYY-MM-DD'
+  // Cuántos turnos pasados hubo en ese lugar.
+  veces: number;
+};
+
+const sinTildes = (t: string) =>
+  t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// Dos turnos son "el mismo lugar" si el pin cae a unos 10 metros (4 decimales), o, sin pin,
+// si el nombre y la dirección escritos coinciden (sin importar mayúsculas ni tildes).
+function claveDeLugar(l: Lugar): string {
+  if (l.lat !== null && l.lon !== null) return `p:${l.lat.toFixed(4)},${l.lon.toFixed(4)}`;
+  return `t:${sinTildes(l.nombre)}|${sinTildes(l.direccion)}`;
+}
+
+// De los turnos de un hijo, los lugares donde YA fue, del más reciente al más antiguo y sin repetir.
+// Los turnos futuros no cuentan: la pregunta es "¿dónde fue la última vez?".
+export function ultimosLugares(turnos: TurnoConLugar[], maximo = 5): UltimoLugar[] {
+  const pasados = turnos
+    .filter((t) => tieneLugar(lugarDeTurno(t)) && esTurnoPasado(t.date, t.time))
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1; // más nuevo primero
+      return (b.time || '').localeCompare(a.time || '');
+    });
+
+  const porClave = new Map<string, UltimoLugar>();
+  for (const t of pasados) {
+    const lugar = lugarDeTurno(t);
+    const clave = claveDeLugar(lugar);
+    const existente = porClave.get(clave);
+    if (existente) {
+      existente.veces += 1;
+      // El nombre más reciente manda, pero si le faltaba un dato que un turno viejo sí tenía, se completa.
+      if (!existente.lugar.nombre && lugar.nombre) existente.lugar.nombre = lugar.nombre;
+      if (!existente.lugar.direccion && lugar.direccion) existente.lugar.direccion = lugar.direccion;
+    } else {
+      porClave.set(clave, { lugar, turnoTitulo: t.title, fecha: t.date, veces: 1 });
+    }
+  }
+  return Array.from(porClave.values()).slice(0, maximo);
+}
+
+// ¿Hay turnos futuros con lugar? Sirve para explicar un listado vacío ("todavía no fue a ninguno, pero hay uno agendado").
+export function hayProximosConLugar(turnos: TurnoConLugar[]): boolean {
+  return turnos.some((t) => tieneLugar(lugarDeTurno(t)) && !esTurnoPasado(t.date, t.time));
 }

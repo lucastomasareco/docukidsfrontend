@@ -53,6 +53,7 @@ export const AYUDAS: Record<PantallaAyuda, AyudaDeUnaPantalla> = {
       { icono: 'search-outline', texto: 'Con la lupa buscás a tu hijo por las primeras letras de su nombre (por ejemplo "Luc"). Tocá la X para ver a todos de nuevo.' },
       { icono: 'hand-left-outline', texto: 'Mantené presionado un hijo para cambiarle el nombre o borrarlo.' },
       { icono: 'checkmark-circle-outline', texto: 'El hijo que tocás queda elegido: sus documentos y turnos aparecen en Docs y Calendario.' },
+      { icono: 'location-outline', texto: 'Tocá el pin de un hijo para ver los últimos lugares donde fue a sus turnos (pediatra, laboratorio…) y cómo llegar. Salen de los turnos que tienen lugar.' },
       { icono: 'people-outline', texto: 'Si estás en una familia, los hijos son compartidos: las dos personas ven y editan los mismos. Los cambios del otro los ves al volver a entrar a esta pantalla.' },
     ],
   },
