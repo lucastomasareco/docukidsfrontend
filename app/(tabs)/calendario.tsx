@@ -131,6 +131,9 @@ export default function Calendario() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [alturaLista, setAlturaLista] = useState(0);
   const [alturas, setAlturas] = useState<Record<number, number>>({});
+  // Alto del aviso "No tenés turnos próximos", que va arriba de la lista y la empuja hacia abajo.
+  // El efecto carrusel lo necesita para saber dónde está de verdad cada tarjeta.
+  const [alturaCabecera, setAlturaCabecera] = useState(0);
 
   // esRefresco = true cuando viene del gesto de deslizar hacia abajo: en ese caso
   // la lista NO se reemplaza por el spinner grande (se ve el circulito de arriba)
@@ -546,6 +549,9 @@ export default function Calendario() {
   </View>
   );
 
+  // Aviso de "sin turnos próximos" arriba de la lista (solo cuando hay turnos pasados guardados).
+  const hayCabecera = !cargando && !error && !buscando && !diaSeleccionado && proximos.length === 0 && pasados.length > 0;
+
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       {esAncho ? (
@@ -614,15 +620,17 @@ export default function Calendario() {
           }
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
           ListHeaderComponent={
-            !cargando && !error && !buscando && !diaSeleccionado && proximos.length === 0 && pasados.length > 0 ? (
-              <EstadoVacio
-                variante="compacta"
-                icono="calendar-outline"
-                titulo="No tenés turnos próximos"
-                mensaje="Los turnos anteriores a hoy están guardados abajo."
-                etiquetaAccion="Agendar turno"
-                onAccion={() => abrirFormulario()}
-              />
+            hayCabecera ? (
+              <View onLayout={(e) => setAlturaCabecera(Math.round(e.nativeEvent.layout.height))}>
+                <EstadoVacio
+                  variante="compacta"
+                  icono="calendar-outline"
+                  titulo="No tenés turnos próximos"
+                  mensaje="Los turnos anteriores a hoy están guardados abajo."
+                  etiquetaAccion="Agendar turno"
+                  onAccion={() => abrirFormulario()}
+                />
+              </View>
             ) : null
           }
           ListEmptyComponent={
@@ -669,7 +677,9 @@ export default function Calendario() {
             // Posición de la tarjeta dentro de la lista (suma de las alturas de las anteriores).
             const viewport = alturaLista || 400;
             const h = Math.min(alturas[item.id] ?? ALTURA_ESTIMADA, viewport);
-            let y = 0;
+            // Se parte del alto del aviso de arriba (si está): si no, las tarjetas se desvanecían
+            // antes de tiempo al deslizar y parecían desaparecer.
+            let y = hayCabecera ? alturaCabecera : 0;
             for (let j = 0; j < index; j++) y += alturas[filas[j].id] ?? ALTURA_ESTIMADA;
             const zona = h * 0.8; // tramo en el que se va volviendo transparente
             // scrollY -> [invisible abajo, visible, visible, invisible arriba]
