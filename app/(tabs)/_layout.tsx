@@ -8,6 +8,7 @@ import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
 import { migrarDriveEnSegundoPlano } from '../../lib/migrarDrive';
+import useEscritorio from '../../lib/useEscritorio';
 
 const ICONOS: Record<string, { activo: any; inactivo: any }> = {
   index: { activo: 'document-text', inactivo: 'document-text-outline' },
@@ -28,6 +29,7 @@ function crearIcono(pantalla: keyof typeof ICONOS) {
 
 export default function TabsLayout() {
   const { tema } = useTheme();
+  const esEscritorio = useEscritorio();
   const { hijos, seleccionadoId } = useChildren();
   // Con un hijo elegido, el título de la barra lleva su nombre. Si no hay, el título de siempre.
   const nombreHijo = hijos.find((h) => h.id === seleccionadoId)?.name;
@@ -50,6 +52,8 @@ export default function TabsLayout() {
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
         tabBarLabelStyle: { fontSize: 15, fontWeight: '600' },
+        // En pantalla ancha (PC) la barra va a la izquierda; en el celular sigue abajo, como siempre.
+        tabBarPosition: esEscritorio ? 'left' : 'bottom',
       }}
     >
       {/* "title" es el nombre corto de la barra de abajo; "headerTitle" es el de arriba. */}

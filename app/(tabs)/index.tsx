@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Modal,
   Linking,
   Platform,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -38,6 +40,8 @@ import { buscarDocumentos, hayResultados } from '../../lib/busqueda';
 import EncabezadoCarpeta from '../../components/EncabezadoCarpeta';
 import SelectorCarpeta from '../../components/SelectorCarpeta';
 import AsaArrastre from '../../components/AsaArrastre';
+import useEscritorio from '../../lib/useEscritorio';
+import ItemCarpetaLateral from '../../components/ItemCarpetaLateral';
 
 type Documento = {
   id: number;
@@ -98,6 +102,14 @@ const TEXTO_POR_ESTADO: Record<Documento['status'], string> = {
 // Está fuera del componente para no repetir el aviso cada vez que se cambia de pestaña.
 let avisoGoogleParaUsuario: string | null = null;
 
+// En el celular no dibuja nada extra (solo deja pasar a sus hijos); en pantalla ancha agrupa en una caja.
+function Caja({ activa, estilo, children }: { activa: boolean; estilo: any; children: ReactNode }) {
+  return activa ? <View style={estilo}>{children}</View> : <>{children}</>;
+}
+
+// Ancho máximo del contenido en pantalla ancha (incluye la barra lateral, por eso es un poco menor).
+const ANCHO_MAX_CONTENIDO = 1100;
+
 export default function Docs() {
   const { session } = useAuth();
   const usuarioId = session?.user.id ?? null;
@@ -105,6 +117,10 @@ export default function Docs() {
   const { tema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const router = useRouter();
+  // Pantalla ancha (PC): el contenido se centra con un ancho máximo. En el celular no cambia nada.
+  const esEscritorio = useEscritorio();
+  const { width: anchoVentana } = useWindowDimensions();
+  const margenEscritorio = esEscritorio ? Math.max(16, (anchoVentana - ANCHO_MAX_CONTENIDO) / 2) : 16;
   const hijoSeleccionado = hijos.find((h) => h.id === seleccionadoId);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -158,6 +174,9 @@ export default function Docs() {
     alternarBloqueoArrastre,
   } = useCarpetas(usuarioId);
   const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
+  // Pantalla ancha: carpeta elegida en el panel izquierdo (SUELTO = "A la vista"). Si se borra, vuelve a "A la vista".
+  const [carpetaSel, setCarpetaSel] = useState<string>(SUELTO);
+  const carpetaVista = carpetaSel === SUELTO || carpetas.some((c) => c.id === carpetaSel) ? carpetaSel : SUELTO;
   // Buscador: por nombre de documento y por carpeta (ver lib/busqueda.ts).
   const [busqueda, setBusqueda] = useState('');
   const resultadoBusqueda = useMemo(
@@ -230,6 +249,14 @@ export default function Docs() {
       return lista;
     }
 
+    // Pantalla ancha: el panel derecho muestra solo los documentos de la carpeta elegida.
+    if (esEscritorio) {
+      const docsVista = grupos[carpetaVista] ?? [];
+      if (docsVista.length > 0) docsVista.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
+      else if (documentos.length > 0) lista.push({ tipo: 'vacia', clave: `v-${carpetaVista}`, carpetaId: carpetaVista });
+      return lista;
+    }
+
     if (sueltos.length > 0) {
       lista.push({ tipo: 'etiqueta', clave: 'etiqueta-sueltos', texto: 'A la vista' });
       sueltos.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
@@ -246,7 +273,7 @@ export default function Docs() {
       else docs.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: true }));
     });
     return lista;
-  }, [grupos, carpetas, cerradas, arrastre, buscando, resultadoBusqueda]);
+  }, [grupos, carpetas, cerradas, arrastre, buscando, resultadoBusqueda, esEscritorio, carpetaVista, documentos.length]);
 
   const verificarGoogle = useCallback(async () => {
     try {
@@ -431,7 +458,8 @@ export default function Docs() {
   };
 
   const abrirOpciones = () => {
-    setCarpetaDestino(carpetaPorDefecto);
+    // PC: se sube a la carpeta que se está viendo. Celular: la carpeta de siempre.
+    setCarpetaDestino(esEscritorio ? carpetaVista : carpetaPorDefecto);
     setMostrarMenu(true);
   };
 
@@ -825,60 +853,8 @@ export default function Docs() {
 
   const esImagen = archivoElegido?.mimeType.startsWith('image/');
 
-  // --- CAMBIO PRINCIPAL: Apertura con LinearGradient ---
-  return (
-    <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      <SelectorHijo />
-
-      {/* Solo aparece si en tu Drive (o su papelera) quedaron carpetas de una cuenta anterior. */}
-      {!mostrarFormulario && <TarjetaRecuperarDatos />}
-
-      {!mostrarFormulario && googleConectado === false && (
-        <View style={styles.bloqueGoogle}>
-          {esMiembro ? (
-            <Text style={styles.ayudaGoogle}>
-              Tu familia usa la cuenta de Google del titular y todavía no la conectó. Pedile que la conecte desde Ajustes para poder subir documentos y agendar turnos.
-            </Text>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
-                onPress={conectarGoogle}
-                disabled={conectandoGoogle}
-              >
-                <Text style={styles.botonGoogleTexto}>
-                  {conectandoGoogle ? 'Conectando...' : 'Conectar con Google'}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.ayudaGoogle}>
-                Necesario para subir documentos, agendar turnos y recibir avisos por email.
-              </Text>
-            </>
-          )}
-        </View>
-      )}
-
-      {!mostrarFormulario && !editando && !formCarpeta && (
-        <>
-          <TouchableOpacity
-            style={[styles.botonSubirGrande, { backgroundColor: tema.primary }]}
-            onPress={abrirOpciones}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
-          </TouchableOpacity>
-          <View style={styles.filaAcciones}>
-            {/* Más chico y solo con borde: es para ordenar, no para subir. */}
-            <TouchableOpacity
-              style={[styles.botonNuevaCarpeta, { borderColor: tema.primary }]}
-              onPress={abrirNuevaCarpeta}
-              activeOpacity={0.7}
-              accessibilityLabel="Crear una carpeta nueva"
-            >
-              <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
-              <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
-            </TouchableOpacity>
-            {/* Buscador: mismo alto y estilo que "Nueva carpeta". */}
+  // Buscador (en el celular va junto a "Nueva carpeta"; en pantalla ancha, arriba del panel derecho).
+  const buscadorJsx = (
             <View
               style={[
                 styles.buscador,
@@ -909,8 +885,99 @@ export default function Docs() {
                 </TouchableOpacity>
               )}
             </View>
+  );
+
+
+  // --- CAMBIO PRINCIPAL: Apertura con LinearGradient ---
+  return (
+    <LinearGradient
+      colors={tema.backgroundGradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.container, esEscritorio && { paddingHorizontal: margenEscritorio }]}
+    >
+      <SelectorHijo />
+
+      {/* Solo aparece si en tu Drive (o su papelera) quedaron carpetas de una cuenta anterior. */}
+      {!mostrarFormulario && <TarjetaRecuperarDatos />}
+
+      {!mostrarFormulario && googleConectado === false && (
+        <View style={styles.bloqueGoogle}>
+          {esMiembro ? (
+            <Text style={styles.ayudaGoogle}>
+              Tu familia usa la cuenta de Google del titular y todavía no la conectó. Pedile que la conecte desde Ajustes para poder subir documentos y agendar turnos.
+            </Text>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
+                onPress={conectarGoogle}
+                disabled={conectandoGoogle}
+              >
+                <Text style={styles.botonGoogleTexto}>
+                  {conectandoGoogle ? 'Conectando...' : 'Conectar con Google'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.ayudaGoogle}>
+                Necesario para subir documentos, agendar turnos y recibir avisos por email.
+              </Text>
+            </>
+          )}
+        </View>
+      )}
+
+      <Caja activa={esEscritorio} estilo={styles.filaEscritorio}>
+      <Caja activa={esEscritorio} estilo={styles.panelIzq}>
+      {!mostrarFormulario && !editando && !formCarpeta && (
+        <>
+          <TouchableOpacity
+            style={[styles.botonSubirGrande, { backgroundColor: tema.primary }, esEscritorio && styles.botonSubirCompacto]}
+            onPress={abrirOpciones}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.botonSubirGrandeTexto}>📂  SUBIR DOCUMENTO</Text>
+          </TouchableOpacity>
+          <View style={styles.filaAcciones}>
+            {/* Más chico y solo con borde: es para ordenar, no para subir. */}
+            <TouchableOpacity
+              style={[styles.botonNuevaCarpeta, { borderColor: tema.primary }, esEscritorio && { flex: 1 }]}
+              onPress={abrirNuevaCarpeta}
+              activeOpacity={0.7}
+              accessibilityLabel="Crear una carpeta nueva"
+            >
+              <Ionicons name="folder-outline" size={18} color="#1F1F1F" />
+              <Text style={styles.botonNuevaCarpetaTexto}>Nueva carpeta</Text>
+            </TouchableOpacity>
+            {!esEscritorio && buscadorJsx}
           </View>
         </>
+      )}
+
+      {esEscritorio && !cargando && !(cargandoCarpetas && carpetas.length === 0) && !error && !errorCarpetas && (
+        <ScrollView style={styles.listaCarpetas} showsVerticalScrollIndicator={false}>
+          <ItemCarpetaLateral
+            nombre="A la vista"
+            icono="eye-outline"
+            cantidad={(grupos[SUELTO] ?? []).length}
+            seleccionada={!buscando && carpetaVista === SUELTO}
+            onPress={() => { setBusqueda(''); setCarpetaSel(SUELTO); }}
+          />
+          {carpetas.map((c) => (
+            <ItemCarpetaLateral
+              key={c.id}
+              nombre={c.nombre}
+              cantidad={(grupos[c.id] ?? []).length}
+              seleccionada={!buscando && carpetaVista === c.id}
+              onPress={() => { setBusqueda(''); setCarpetaSel(c.id); }}
+              onLongPress={() => abrirEdicionCarpeta(c.id, c.nombre)}
+            />
+          ))}
+        </ScrollView>
+      )}
+      </Caja>
+      <Caja activa={esEscritorio} estilo={styles.panelDer}>
+      {esEscritorio && !mostrarFormulario && !editando && !formCarpeta && (
+        <View style={styles.filaBuscadorEscritorio}>{buscadorJsx}</View>
       )}
 
       {cargando || (cargandoCarpetas && carpetas.length === 0) ? (
@@ -936,6 +1003,8 @@ export default function Docs() {
                 ? 'Mover archivos está bloqueado.'
                 : buscando
                 ? 'Borrá la búsqueda para mover archivos.'
+                : esEscritorio
+                ? 'Para ordenar, arrastrá el ícono ≡; para cambiarlo de carpeta, editalo.'
                 : 'Para mover, arrastrá el ícono ≡.'}
             </Text>
             <TouchableOpacity
@@ -1041,7 +1110,7 @@ export default function Docs() {
                         />
                       ) : item.tipo === 'vacia' ? (
                         <Text style={[styles.carpetaVacia, lado === 'dentro' && styles.vaciaResaltada]}>
-                          {lado === 'dentro' ? 'Soltá acá' : 'Carpeta vacía'}
+                          {lado === 'dentro' ? 'Soltá acá' : item.carpetaId === SUELTO ? 'No hay documentos a la vista' : 'Carpeta vacía'}
                         </Text>
                       ) : (
                         <TouchableOpacity
@@ -1103,6 +1172,8 @@ export default function Docs() {
           </View>
         </>
       )}  
+      </Caja>
+      </Caja>
 
       {mostrarFormulario && archivoElegido && (
         <FormularioSuperior>
@@ -1315,6 +1386,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
+  botonSubirCompacto: { paddingVertical: 12 },
+  // Pantalla ancha: panel de carpetas a la izquierda y documentos a la derecha.
+  filaEscritorio: { flex: 1, flexDirection: 'row', gap: 20 },
+  panelIzq: { width: 300 },
+  panelDer: { flex: 1 },
+  listaCarpetas: { flex: 1 },
+  filaBuscadorEscritorio: { flexDirection: 'row', marginBottom: 12 },
   botonSubirGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
   // Más bajo y con solo borde: se distingue del botón grande SUBIR DOCUMENTO.
   filaAcciones: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
