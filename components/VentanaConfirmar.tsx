@@ -54,7 +54,7 @@ export default function VentanaConfirmar({ opciones, onResponder }: Props) {
         {/* El Pressable interior frena el toque para que tocar la tarjeta no la cierre. */}
         <Pressable style={[styles.caja, { backgroundColor: tema.card }]} onPress={() => {}}>
           <View style={[styles.circulo, { backgroundColor: peligro ? '#F8D7DA' : tema.primary }]}>
-            <Ionicons name={icono} size={34} color={peligro ? ROJO : TEXTO} />
+            <Ionicons name={icono} size={28} color={peligro ? ROJO : TEXTO} />
           </View>
           <Text style={styles.titulo}>{titulo}</Text>
           {mensaje ? <Text style={styles.mensaje}>{mensaje}</Text> : null}
@@ -71,13 +71,14 @@ export default function VentanaConfirmar({ opciones, onResponder }: Props) {
 }
 
 const styles = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
-  caja: { borderRadius: 24, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 18, alignItems: 'center', elevation: 10 },
-  circulo: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  titulo: { fontSize: 22, fontWeight: 'bold', color: TEXTO, textAlign: 'center' },
-  mensaje: { fontSize: 17, lineHeight: 24, color: '#3F3F3F', textAlign: 'center', marginTop: 8 },
-  botones: { alignSelf: 'stretch', marginTop: 8 },
-  boton: { paddingVertical: 15, borderRadius: 12, borderWidth: 3, alignItems: 'center', marginTop: 12 },
+  // alignItems centra la caja; la caja nunca pasa de 400 px (en PC ya no ocupa toda la pantalla).
+  fondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  caja: { width: '100%', maxWidth: 400, borderRadius: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, alignItems: 'center', elevation: 10 },
+  circulo: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  titulo: { fontSize: 20, fontWeight: 'bold', color: TEXTO, textAlign: 'center' },
+  mensaje: { fontSize: 16, lineHeight: 22, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
+  botones: { alignSelf: 'stretch', marginTop: 4 },
+  boton: { paddingVertical: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center', marginTop: 10 },
   botonRojo: { backgroundColor: ROJO, borderColor: ROJO },
-  textoBoton: { fontSize: 19, fontWeight: 'bold', color: TEXTO },
+  textoBoton: { fontSize: 17, fontWeight: 'bold', color: TEXTO },
 });
