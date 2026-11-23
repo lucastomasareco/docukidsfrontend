@@ -58,7 +58,7 @@ type Fila =
   | { tipo: 'doc'; clave: string; doc: Documento; sangria: boolean }
   | { tipo: 'carpeta'; clave: string; nombre: string; id: string; cantidad: number; abierta: boolean }
   | { tipo: 'vacia'; clave: string; carpetaId: string }
-  | { tipo: 'etiqueta'; clave: string; texto: string }
+  | { tipo: 'etiqueta'; clave: string; texto: string; plegable?: boolean; abierta?: boolean } // plegable: solo en pantalla ancha
   | { tipo: 'zonaSuelto'; clave: string }; // solo aparece mientras se arrastra, si no hay documentos sueltos
 
 // Documento que se está arrastrando. top = dónde está su tarjeta en la pantalla (de la lista) al agarrarlo.
@@ -176,6 +176,8 @@ export default function Docs() {
   const [cerradas, setCerradas] = useState<Record<string, boolean>>({}); // por defecto todas abiertas
   // Pantalla ancha: carpeta elegida en el panel izquierdo (SUELTO = "A la vista"). Si se borra, vuelve a "A la vista".
   const [carpetaSel, setCarpetaSel] = useState<string>(SUELTO);
+  // Pantalla ancha: la sección "A la vista" (siempre arriba) se puede ocultar con su flecha.
+  const [vistaCerrada, setVistaCerrada] = useState(false);
   const carpetaVista = carpetaSel === SUELTO || carpetas.some((c) => c.id === carpetaSel) ? carpetaSel : SUELTO;
   // Buscador: por nombre de documento y por carpeta (ver lib/busqueda.ts).
   const [busqueda, setBusqueda] = useState('');
@@ -249,11 +251,26 @@ export default function Docs() {
       return lista;
     }
 
-    // Pantalla ancha: el panel derecho muestra solo los documentos de la carpeta elegida.
+    // Pantalla ancha: arriba siempre "A la vista" (se puede ocultar) y debajo la carpeta elegida.
     if (esEscritorio) {
+      if (sueltos.length > 0) {
+        lista.push({ tipo: 'etiqueta', clave: 'etiqueta-sueltos', texto: 'A la vista', plegable: true, abierta: !vistaCerrada });
+        if (!vistaCerrada) sueltos.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
+      } else if (arrastre) {
+        lista.push({ tipo: 'zonaSuelto', clave: 'zona-suelto' });
+      }
+      if (carpetaVista === SUELTO) {
+        if (sueltos.length === 0 && documentos.length > 0) lista.push({ tipo: 'vacia', clave: `v-${SUELTO}`, carpetaId: SUELTO });
+        return lista;
+      }
+      const carpetaElegida = carpetas.find((c) => c.id === carpetaVista);
+      if (!carpetaElegida) return lista;
       const docsVista = grupos[carpetaVista] ?? [];
-      if (docsVista.length > 0) docsVista.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
-      else if (documentos.length > 0) lista.push({ tipo: 'vacia', clave: `v-${carpetaVista}`, carpetaId: carpetaVista });
+      const abiertaVista = !cerradas[carpetaVista];
+      lista.push({ tipo: 'carpeta', clave: `c-${carpetaVista}`, id: carpetaVista, nombre: carpetaElegida.nombre, cantidad: docsVista.length, abierta: abiertaVista });
+      if (!abiertaVista) return lista;
+      if (docsVista.length === 0) lista.push({ tipo: 'vacia', clave: `v-${carpetaVista}`, carpetaId: carpetaVista });
+      else docsVista.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: false }));
       return lista;
     }
 
@@ -273,7 +290,7 @@ export default function Docs() {
       else docs.forEach((d) => lista.push({ tipo: 'doc', clave: `d${d.id}`, doc: d, sangria: true }));
     });
     return lista;
-  }, [grupos, carpetas, cerradas, arrastre, buscando, resultadoBusqueda, esEscritorio, carpetaVista, documentos.length]);
+  }, [grupos, carpetas, cerradas, arrastre, buscando, resultadoBusqueda, esEscritorio, carpetaVista, documentos.length, vistaCerrada]);
 
   const verificarGoogle = useCallback(async () => {
     try {
@@ -1088,7 +1105,21 @@ export default function Docs() {
                   >
                     <View style={{ opacity: arrastre?.clave === item.clave ? 0.3 : 1 }}>
                       {item.tipo === 'etiqueta' ? (
-                        <Text style={[styles.etiquetaSeccion, lado === 'dentro' && styles.etiquetaResaltada]}>{item.texto}</Text>
+                        item.plegable ? (
+                          <TouchableOpacity
+                            style={styles.etiquetaPlegable}
+                            onPress={() => setVistaCerrada((v) => !v)}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${item.texto}, ${item.abierta ? 'visible' : 'oculto'}`}
+                            accessibilityHint="Tocá para mostrar u ocultar estos documentos"
+                          >
+                            <Text style={[styles.etiquetaSeccion, styles.etiquetaSinMargen, lado === 'dentro' && styles.etiquetaResaltada]}>{item.texto}</Text>
+                            <Ionicons name={item.abierta ? 'chevron-down' : 'chevron-forward'} size={18} color="#3F3F3F" />
+                          </TouchableOpacity>
+                        ) : (
+                          <Text style={[styles.etiquetaSeccion, lado === 'dentro' && styles.etiquetaResaltada]}>{item.texto}</Text>
+                        )
                       ) : item.tipo === 'zonaSuelto' ? (
                         <View
                           style={[
@@ -1422,6 +1453,8 @@ const styles = StyleSheet.create({
   etiquetaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#3F3F3F', marginTop: 4, marginBottom: 6, textTransform: 'uppercase' },
   carpetaVacia: { fontSize: 14, color: '#3F3F3F', fontStyle: 'italic', marginLeft: 14, marginBottom: 10 },
   cardEnCarpeta: { marginLeft: 14 },
+  etiquetaPlegable: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 6, alignSelf: 'flex-start', paddingVertical: 4 },
+  etiquetaSinMargen: { marginTop: 0, marginBottom: 0 },
   etiquetaResaltada: { color: '#1F1F1F', textDecorationLine: 'underline' },
   vaciaResaltada: { fontWeight: 'bold', fontStyle: 'normal', color: '#1F1F1F' },
   zonaSuelto: {
