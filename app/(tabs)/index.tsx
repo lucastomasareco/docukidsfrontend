@@ -33,6 +33,7 @@ import SelectorHijo from '../../components/SelectorHijo';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import ConfirmarFecha from '../../components/ConfirmarFecha';
 import FormularioSuperior from '../../components/FormularioSuperior';
+import VistaPreviaImagen from '../../components/VistaPreviaImagen';
 import { conectarGoogleEnWeb } from '../../lib/googleWeb';
 import { colorConOpacidad, fechaCorta } from '../../lib/fechas';
 import { SUELTO, useCarpetas } from '../../lib/carpetas';
@@ -1209,7 +1210,7 @@ export default function Docs() {
       {mostrarFormulario && archivoElegido && (
         <FormularioSuperior>
           {esImagen ? (
-            <Image source={{ uri: archivoElegido.uri }} style={styles.previsualizacion} />
+            <VistaPreviaImagen uri={archivoElegido.uri} />
           ) : (
             <View style={styles.previsualizacionPDF}>
               <Text style={styles.iconoPDF}>📄</Text>
