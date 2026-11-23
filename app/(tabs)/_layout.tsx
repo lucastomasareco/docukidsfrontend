@@ -46,6 +46,11 @@ export default function TabsLayout() {
         headerRight: () => <BotonAyuda />,
         // Barra de arriba: blanca (la de siempre); solo cambia el estilo del título.
         headerTitleAlign: 'left',
+        // Barra de arriba 3 px más baja que la de siempre (64 → 61), en celular y en PC.
+        // Para volver a como estaba: borrar esta línea y la siguiente.
+        headerStyle: { height: 61 },
+        // Sube el título 2 px para que quede a la misma altura que el botón "¿Cómo se usa esta pantalla?".
+        headerTitleContainerStyle: { paddingBottom: 4 },
         headerTitleStyle: { fontSize: 21, fontWeight: 'bold', color: tema.textPrimary },
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
