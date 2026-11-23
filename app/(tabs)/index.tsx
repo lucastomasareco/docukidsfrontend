@@ -881,7 +881,7 @@ export default function Docs() {
               <Ionicons name="search-outline" size={18} color="#1F1F1F" />
               <TextInput
                 style={[styles.buscadorInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
-                placeholder="Buscar documento o carpeta"
+                placeholder="Documento o carpeta"
                 placeholderTextColor="#5F5F5F"
                 value={busqueda}
                 onChangeText={setBusqueda}
@@ -1447,8 +1447,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1.5,
+    minWidth: 0,
+    overflow: 'hidden',
   },
-  buscadorInput: { flex: 1, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
+  buscadorInput: { flex: 1, minWidth: 0, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   botonNuevaCarpetaTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
   etiquetaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#3F3F3F', marginTop: 4, marginBottom: 6, textTransform: 'uppercase' },
   carpetaVacia: { fontSize: 14, color: '#3F3F3F', fontStyle: 'italic', marginLeft: 14, marginBottom: 10 },

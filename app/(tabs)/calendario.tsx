@@ -516,7 +516,7 @@ export default function Calendario() {
   <View
     style={[
       styles.buscador,
-      esAncho ? styles.buscadorAncho : null,
+      esAncho ? styles.buscadorAncho : styles.buscadorMovil,
       { borderColor: tema.primary, backgroundColor: colorConOpacidad(tema.primary, 0.22) },
     ]}
   >
@@ -594,11 +594,6 @@ export default function Calendario() {
         <TouchableOpacity onPress={() => setDiaSeleccionado(null)} style={styles.verTodos}>
           <Text style={styles.verTodosTexto}>Mostrando solo el {fechaCorta(diaSeleccionado)} · Ver todos</Text>
         </TouchableOpacity>
-      )}
-      {!cargando && !error && (
-        <Text style={styles.pista}>
-          Tocá un día libre para agendar un turno (en un día con turnos: mantenelo presionado o usá el botón +). Mantené presionado un turno para editarlo o eliminarlo.
-        </Text>
       )}
 
       <View style={{ flex: 1 }} onLayout={(e) => setAlturaLista(e.nativeEvent.layout.height)}>
@@ -899,12 +894,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     marginBottom: 4,
+    minWidth: 0,
+    overflow: 'hidden',
   },
   // Pantalla ancha: fila de arriba = [selector de hijo (ancho del calendario)] [buscador].
   filaSuperior: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
   buscadorAncho: { flex: 1, marginBottom: 0 },
-  buscadorInput: { flex: 1, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
-  pista: { fontSize: 13, color: '#3F3F3F', textAlign: 'center', marginTop: 6 },
+  // Celular: 3 px más abajo (separado del calendario) y la lista de turnos empieza 3 px antes (4 → 1).
+  buscadorMovil: { marginTop: 3, marginBottom: 1 },
+  buscadorInput: { flex: 1, minWidth: 0, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
   zonaError: { marginTop: 24 },
