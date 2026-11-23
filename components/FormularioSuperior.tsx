@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import useEscritorio from '../lib/useEscritorio';
 
 // Tarjeta de formulario FIJA ARRIBA (en el celular, nunca más del 45 % de la altura de la
 // pantalla; en escritorio/web, hasta el 90 %, porque no hay teclado en pantalla y el
@@ -13,6 +14,9 @@ type Props = { children: ReactNode; onCerrar?: () => void };
 
 export default function FormularioSuperior({ children, onCerrar }: Props) {
   const { height } = useWindowDimensions();
+  // PC / portátil (ventana de 900 px o más): bordes a la mitad (16 → 8, margen de arriba 12 → 6).
+  // En el celular queda exactamente como antes.
+  const escritorio = useEscritorio();
   // En el celular el teclado ocupa la mitad de abajo; en la PC no, así que el formulario puede abrirse entero.
   const alturaMaxima = height * (Platform.OS === 'web' ? 0.9 : 0.45);
   return (
@@ -25,8 +29,8 @@ export default function FormularioSuperior({ children, onCerrar }: Props) {
         />
       )}
       <ScrollView
-        style={[styles.tarjeta, { maxHeight: alturaMaxima }]}
-        contentContainerStyle={styles.contenido}
+        style={[styles.tarjeta, { maxHeight: alturaMaxima }, escritorio && styles.tarjetaEscritorio]}
+        contentContainerStyle={[styles.contenido, escritorio && styles.contenidoEscritorio]}
         keyboardShouldPersistTaps="handled"
       >
         {children}
@@ -50,4 +54,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   contenido: { padding: 16 },
+  tarjetaEscritorio: { marginHorizontal: 8, marginTop: 6 },
+  contenidoEscritorio: { padding: 8 },
 });
