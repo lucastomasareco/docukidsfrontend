@@ -900,8 +900,10 @@ const styles = StyleSheet.create({
   // Pantalla ancha: fila de arriba = [selector de hijo (ancho del calendario)] [buscador].
   filaSuperior: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
   buscadorAncho: { flex: 1, marginBottom: 0 },
-  // Celular: 3 px más abajo (separado del calendario) y la lista de turnos empieza 3 px antes (4 → 1).
-  buscadorMovil: { marginTop: 3, marginBottom: 1 },
+  // Celular: el buscador va centrado entre el calendario y la primera tarjeta de turno.
+  // Espacio de arriba = marginTop (+ el aire propio del calendario). Espacio de abajo = marginBottom + 10
+  // (la tarjeta trae 10 de margen). Bajar el buscador 1 px: marginTop +1 y marginBottom -1 (la lista no se mueve).
+  buscadorMovil: { marginTop: 5, marginBottom: -1 },
   buscadorInput: { flex: 1, minWidth: 0, fontSize: 15, color: '#1F1F1F', paddingVertical: 0 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   centroFlex: { alignItems: 'center', marginTop: 40, gap: 12 },
