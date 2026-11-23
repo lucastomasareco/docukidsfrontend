@@ -8,6 +8,7 @@ import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
 import { migrarDriveEnSegundoPlano } from '../../lib/migrarDrive';
+import useTelefono from '../../lib/useTelefono';
 
 const ICONOS: Record<string, { activo: any; inactivo: any }> = {
   index: { activo: 'document-text', inactivo: 'document-text-outline' },
@@ -28,6 +29,7 @@ function crearIcono(pantalla: keyof typeof ICONOS) {
 
 export default function TabsLayout() {
   const { tema } = useTheme();
+  const telefono = useTelefono();
   const { hijos, seleccionadoId } = useChildren();
   // Con un hijo elegido, el título de la barra lleva su nombre. Si no hay, el título de siempre.
   const nombreHijo = hijos.find((h) => h.id === seleccionadoId)?.name;
@@ -48,19 +50,22 @@ export default function TabsLayout() {
         headerTitleAlign: 'left',
         // Barra de arriba 3 px más baja que la de siempre (64 → 61), en celular y en PC.
         // Para volver a como estaba: borrar esta línea y la siguiente.
-        headerStyle: { height: 61 },
+        // En teléfono: la mitad de alta (32 px) y la letra 1 px más chica. En PC queda como estaba.
+        headerStyle: { height: telefono ? 32 : 61 },
         // Sube el título 2 px para que quede a la misma altura que el botón "¿Cómo se usa esta pantalla?".
-        headerTitleContainerStyle: { paddingBottom: 4 },
-        headerTitleStyle: { fontSize: 21, fontWeight: 'bold', color: tema.textPrimary },
+        headerTitleContainerStyle: { paddingBottom: telefono ? 0 : 4 },
+        headerTitleStyle: { fontSize: telefono ? 20 : 21, fontWeight: 'bold', color: tema.textPrimary },
         tabBarActiveTintColor: tema.primary,
         tabBarInactiveTintColor: tema.textSecondary,
-        tabBarLabelStyle: { fontSize: 15, fontWeight: '600' },
+        // En teléfono el ícono va sobre el texto y la barra tiene alto fijo: con letra de 15 px el texto
+        // quedaba cortado por abajo. Con 12 px entra completo SIN subir la barra. En PC no cambia.
+        tabBarLabelStyle: { fontSize: telefono ? 12 : 15, fontWeight: '600' },
       }}
     >
       {/* "title" es el nombre corto de la barra de abajo; "headerTitle" es el de arriba. */}
       <Tabs.Screen
         name="index"
-        options={{ title: 'Docs', headerTitle: nombreHijo ? `Documentos de ${nombreHijo}` : 'Mis documentos', tabBarIcon: crearIcono('index') }}
+        options={{ title: 'Docs', headerTitle: nombreHijo ? `${telefono ? 'Docs.' : 'Documentos'} de ${nombreHijo}` : 'Mis documentos', tabBarIcon: crearIcono('index') }}
       />
       <Tabs.Screen
         name="calendario"

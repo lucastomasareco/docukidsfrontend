@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAyuda } from '../context/AyudaContext';
+import useTelefono from '../lib/useTelefono';
 
 // Botón de la barra de arriba que abre la guía de la pantalla. Es una "pastilla" del
 // color del tema, con texto (antes era solo un "?" y casi nadie lo veía).
@@ -9,17 +10,18 @@ import { useAyuda } from '../context/AyudaContext';
 export default function BotonAyuda() {
   const { tema } = useTheme();
   const { alternar } = useAyuda();
+  const telefono = useTelefono();
 
   return (
     <TouchableOpacity
-      style={[styles.boton, { backgroundColor: tema.primary }]}
+      style={[styles.boton, telefono && styles.botonTelefono, { backgroundColor: tema.primary }]}
       onPress={alternar}
       activeOpacity={0.7}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       accessibilityRole="button"
       accessibilityLabel="Abrir la guía de esta pantalla"
     >
-      <Text style={styles.texto} numberOfLines={1}>¿Cómo se usa esta pantalla?</Text>
+      <Text style={[styles.texto, telefono && styles.textoTelefono]} numberOfLines={1}>¿Cómo se usa esta pantalla?</Text>
     </TouchableOpacity>
   );
 }
@@ -27,5 +29,8 @@ export default function BotonAyuda() {
 const styles = StyleSheet.create({
   boton: { marginRight: 12, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 18 },
   // Letra chica a propósito: en el teléfono tiene que entrar junto al título.
+  // Teléfono: pastilla más baja (entra en la barra de 32 px) y letra 1 px más chica.
+  botonTelefono: { paddingVertical: 3, paddingHorizontal: 9, marginRight: 8 },
+  textoTelefono: { fontSize: 11.5 },
   texto: { fontSize: 12.5, fontWeight: 'bold', color: '#1F1F1F' },
 });
