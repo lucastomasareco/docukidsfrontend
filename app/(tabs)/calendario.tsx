@@ -129,6 +129,27 @@ export default function Calendario() {
   const [alturaCalendario, setAlturaCalendario] = useState(0);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // ---- Calendario que se pliega al deslizar los turnos (SOLO celular) ----
+  // Al bajar por la lista, el calendario se esconde hacia arriba para dar lugar a los turnos.
+  // Vuelve al llegar arriba de todo en la lista. Con algo escrito en el buscador también se pliega
+  // (en el celular el teclado ya se come media pantalla).
+  const animCal = useRef(new Animated.Value(1)).current; // 1 = calendario a la vista, 0 = plegado
+  const [altoCalMovil, setAltoCalMovil] = useState(0); // alto natural del calendario (se mide solo)
+  const plegadoRef = useRef(false);
+  const altoContenidoRef = useRef(0);
+  const busquedaRef = useRef('');
+  busquedaRef.current = busqueda;
+  const moverCalendario = useCallback((plegar: boolean) => {
+    if (plegadoRef.current === plegar) return;
+    plegadoRef.current = plegar;
+    Animated.timing(animCal, { toValue: plegar ? 0 : 1, duration: 220, useNativeDriver: false }).start();
+  }, [animCal]);
+  // Al escribir en el buscador se pliega; al vaciarlo vuelve (solo en celular).
+  useEffect(() => {
+    if (esAncho) { moverCalendario(false); return; }
+    moverCalendario(busqueda.trim().length > 0);
+  }, [busqueda, esAncho, moverCalendario]);
   const [alturaLista, setAlturaLista] = useState(0);
   const [alturas, setAlturas] = useState<Record<number, number>>({});
   // Alto del aviso "No tenés turnos próximos", que va arriba de la lista y la empuja hacia abajo.
@@ -569,6 +590,7 @@ export default function Calendario() {
       {/* El calendario queda FIJO: solo se desliza la lista de turnos. */}
       {/* En pantalla ancha, si la ventana es TAN baja que ni apretando cabe, el calendario se
           desliza dentro de su columna en vez de quedar cortado. */}
+      {esAncho ? (
       <Envoltorio
         style={esAncho ? [styles.colCalendario, { width: anchoColCalendario }] : null}
         onLayout={esAncho ? (e: any) => setAlturaCalendario(e.nativeEvent.layout.height) : undefined}
@@ -585,6 +607,25 @@ export default function Calendario() {
         theme={temaCalendario}
       />
       </Envoltorio>
+      ) : (
+        // Celular: el calendario va en una caja de alto animado (se pliega al deslizar los turnos).
+        <Animated.View
+          style={altoCalMovil > 0 ? { height: animCal.interpolate({ inputRange: [0, 1], outputRange: [0, altoCalMovil] }), opacity: animCal, overflow: 'hidden' } : undefined}
+        >
+          <View onLayout={(e) => { const h = Math.round(e.nativeEvent.layout.height); setAltoCalMovil((prev) => (prev === h ? prev : h)); }}>
+      <Calendar
+        key={`${TAM_DIA}-${margenRenglon}-${compacto}-${esAncho}`}
+        showSixWeeks={esAncho}
+        current={mesVisible}
+        onMonthChange={(m) => setMesVisible(m.dateString)}
+        markedDates={diasMarcados}
+        onDayPress={(dia) => alTocarDia(dia.dateString)}
+        onDayLongPress={(dia) => abrirFormulario(dia.dateString)}
+        theme={temaCalendario}
+      />
+          </View>
+        </Animated.View>
+      )}
 
       <View style={esAncho ? styles.colTurnos : styles.colTurnosMovil}>
       {/* En celular el buscador va aquí, arriba del texto de ayuda. */}
@@ -602,8 +643,21 @@ export default function Calendario() {
           keyExtractor={(item: Fila) => String(item.id)}
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
+          onContentSizeChange={(_w: number, h: number) => { altoContenidoRef.current = h; }}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
             useNativeDriver: true,
+            // Celular: al bajar por los turnos se pliega el calendario; al volver arriba, se despliega.
+            // Solo se pliega si sobra lista para seguir deslizando (si no, rebotaría y parpadearía).
+            listener: (e: any) => {
+              if (esAncho) return;
+              const y = e.nativeEvent.contentOffset.y;
+              if (!plegadoRef.current) {
+                const sobra = altoContenidoRef.current - (alturaLista + altoCalMovil);
+                if (y > 40 && sobra > 40) moverCalendario(true);
+              } else if (y <= 0 && busquedaRef.current.trim().length === 0) {
+                moverCalendario(false);
+              }
+            },
           })}
           refreshControl={
             <RefreshControl
