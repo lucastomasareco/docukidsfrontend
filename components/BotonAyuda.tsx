@@ -29,8 +29,9 @@ export default function BotonAyuda() {
 const styles = StyleSheet.create({
   boton: { marginRight: 12, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 18 },
   // Letra chica a propósito: en el teléfono tiene que entrar junto al título.
-  // Teléfono: pastilla más baja (entra en la barra de 32 px) y letra 1 px más chica.
-  botonTelefono: { paddingVertical: 3, paddingHorizontal: 9, marginRight: 8 },
-  textoTelefono: { fontSize: 11.5 },
+  // Teléfono: pastilla baja (entra en la barra de 32 px).
+  // Letra 13.5 (2 px más que antes) y la pastilla sube 1 px para quedar en línea con el título.
+  botonTelefono: { paddingVertical: 3, paddingHorizontal: 9, marginRight: 8, position: 'relative', top: -1 },
+  textoTelefono: { fontSize: 13.5 },
   texto: { fontSize: 12.5, fontWeight: 'bold', color: '#1F1F1F' },
 });
