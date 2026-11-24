@@ -41,6 +41,8 @@ import {
   tituloDeLugar,
 } from '../../lib/lugares';
 import { normalizar } from '../../lib/busqueda';
+import { copiarTexto } from '../../lib/portapapeles';
+import { textoDeTurno } from '../../lib/textoTurno';
 import { colorConOpacidad, esTurnoPasado, fechaCorta, fechaDeHoy } from '../../lib/fechas';
 
 // Nombres de meses/días en español para el calendario (react-native-calendars
@@ -365,6 +367,16 @@ export default function Calendario() {
       });
     } finally {
       setGuardando(false);
+    }
+  };
+
+  // Copia el turno como texto plano para pegarlo en WhatsApp (ver lib/textoTurno.ts).
+  const copiarTurno = async (turno: Turno) => {
+    const ok = await copiarTexto(textoDeTurno(turno, hijoSeleccionado?.name));
+    if (ok) {
+      mostrarAviso('Turno copiado', 'Pegalo en WhatsApp o donde quieras.', { icono: 'checkmark-circle-outline' });
+    } else {
+      mostrarAviso('No se pudo copiar', 'Probá de nuevo o anotá los datos a mano.', { icono: 'copy-outline' });
     }
   };
 
@@ -872,6 +884,15 @@ export default function Calendario() {
                       </TouchableOpacity>
                     ))}
                   </View>
+                  <TouchableOpacity
+                    style={[styles.botonCopiar, { borderColor: tema.primary }]}
+                    onPress={() => copiarTurno(item)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copiar el turno ${item.title} para pegarlo en WhatsApp`}
+                  >
+                    <Text style={styles.botonCopiarTexto}>📋</Text>
+                  </TouchableOpacity>
                   {/* PC: botón "Editar" visible (en el celular se edita manteniendo presionado). */}
                   {esEscritorio && (
                     <TouchableOpacity
@@ -1013,6 +1034,9 @@ const styles = StyleSheet.create({
   filaSuperior: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
   // Botón "Editar" (solo PC): mismo borde del tema que los chips de carpeta.
   botonEditar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, marginRight: 8, borderRadius: 10, borderWidth: 1.5 },
+  // Botoncito 📋 de la tarjeta: copia el turno como texto para WhatsApp.
+  botonCopiar: { alignItems: 'center', justifyContent: 'center', width: 38, height: 38, marginLeft: 6, marginRight: 8, borderRadius: 10, borderWidth: 1.5 },
+  botonCopiarTexto: { fontSize: 18 },
   botonEditarTexto: { fontSize: 14, fontWeight: '600', color: '#1F1F1F' },
   buscadorAncho: { flex: 1, marginBottom: 0 },
   // Celular: el buscador va centrado entre el calendario y la primera tarjeta de turno.
