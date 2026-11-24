@@ -6,6 +6,9 @@
 
 import { api } from './api';
 
+// Máximo de personas en una familia (titular incluido). Tiene que coincidir con crud.MAX_FAMILIA del backend.
+export const MAX_FAMILIA = 4;
+
 export type RolFamilia = 'owner' | 'member';
 
 export type MiembroFamilia = {

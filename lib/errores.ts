@@ -184,7 +184,7 @@ export function interpretarError(e: any, que = 'completar la acción'): ErrorAmi
     return armar('familia', 'Ya estás en una familia', 'Cada cuenta puede estar en una sola familia. Revisá la sección Familia en Ajustes.');
   }
   if (estado === 409 && detalle.includes('ya está completa')) {
-    return armar('familia', 'Esa familia está completa', 'Una familia puede tener como máximo 2 personas.');
+    return armar('familia', 'Esa familia está completa', 'Una familia puede tener como máximo 4 personas.');
   }
   if (estado === 409 && detalle.includes('ya tenés hijos')) {
     return armar(

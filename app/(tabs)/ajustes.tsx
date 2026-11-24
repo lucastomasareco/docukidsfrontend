@@ -17,7 +17,7 @@ import { TarjetaError } from '../../components/AvisoError';
 import { ErrorAmigable, errorSimple, interpretarError } from '../../lib/errores';
 import CampoContrasena from '../../components/CampoContrasena';
 import TarjetaPapelera from '../../components/TarjetaPapelera';
-import { codigoCompleto, formatearCodigo, mensajeEliminarCuenta, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
+import { codigoCompleto, MAX_FAMILIA, formatearCodigo, mensajeEliminarCuenta, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
 import { copiarTexto } from '../../lib/portapapeles';
 
 export default function Ajustes() {
@@ -501,7 +501,7 @@ export default function Ajustes() {
         ) : familia === null ? (
           <>
             <Text style={styles.ayudaAncha}>
-              Una familia es de hasta 2 personas (por ejemplo, madre y padre) que ven los mismos hijos, documentos y
+              Una familia es de hasta {MAX_FAMILIA} personas (por ejemplo, madre, padre y abuelos) que ven los mismos hijos, documentos y
               turnos. Quien la crea es el titular: se usa su cuenta de Google. Si ya te dieron un código, tocá
               "Unirme con código".
             </Text>
@@ -525,7 +525,7 @@ export default function Ajustes() {
             <Text style={styles.familiaResumen}>
               {familia.role === 'owner' ? 'Sos el titular de la familia' : 'Sos miembro de la familia'}
             </Text>
-            <Text style={styles.familiaDetalle}>{familia.members.length} de 2 personas</Text>
+            <Text style={styles.familiaDetalle}>{familia.members.length} de {MAX_FAMILIA} personas</Text>
             {familia.members.map((m) => (
               <View key={m.id} style={styles.filaMiembro}>
                 <Text style={styles.miembroEmail} numberOfLines={1}>
@@ -549,11 +549,11 @@ export default function Ajustes() {
             ))}
             <Text style={styles.familiaDetalle}>
               {familia.role === 'owner'
-                ? 'Los dos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
-                : 'Los dos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
+                ? 'Todos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
+                : 'Todos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
             </Text>
 
-            {familia.role === 'owner' && familia.members.length < 2 && (
+            {familia.role === 'owner' && familia.members.length < MAX_FAMILIA && (
               <View style={styles.bloqueInvitar}>
                 {hayCodigo && msRestantes(familia, ahora) > 0 ? (
                   <>
@@ -586,7 +586,7 @@ export default function Ajustes() {
                     <Text style={styles.familiaDetalle}>
                       {hayCodigo
                         ? 'El código venció. Generá uno nuevo.'
-                        : 'Para sumar a la otra persona, generá un código y pasaselo. Dura 24 horas y sirve una sola vez.'}
+                        : 'Para sumar a otra persona, generá un código y pasaselo. Dura 24 horas y sirve una sola vez (para cada persona nueva, un código nuevo).'}
                     </Text>
                     <TouchableOpacity
                       style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
