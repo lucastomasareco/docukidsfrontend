@@ -26,6 +26,7 @@ import SelectorAvatar from '../../components/SelectorAvatar';
 import AsaArrastre from '../../components/AsaArrastre';
 import useEscritorio from '../../lib/useEscritorio';
 import UltimosLugares from '../../components/UltimosLugares';
+import FotoPolaroid from '../../components/FotoPolaroid';
 import type { AvatarElegido } from '../../lib/avatar';
 import { colorConOpacidad } from '../../lib/fechas';
 
@@ -81,6 +82,8 @@ export default function Hijos() {
     arrastreBloqueado,
     alternarBloqueoArrastre,
   } = useChildren();
+  // Hijo elegido (el del ✓): su foto se muestra estilo Polaroid en PC.
+  const hijoElegido = hijos.find((h) => h.id === seleccionadoId);
   const { tema } = useTheme();
   const { mostrarError, mostrarAviso, confirmar } = useAvisos();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -359,6 +362,10 @@ export default function Hijos() {
         >
           <Text style={styles.botonAgendarGrandeTexto}>👶  Registrar hijo</Text>
         </TouchableOpacity>
+      )}
+      {/* PC: foto estilo Polaroid del hijo elegido (con su inicial si no tiene foto). */}
+      {esEscritorio && !mostrarFormulario && hijoElegido && (
+        <FotoPolaroid nombre={hijoElegido.name} fotoUrl={hijoElegido.avatar_url} />
       )}
       </Caja>
       <Caja activa={esEscritorio} estilo={styles.panelDer}>
