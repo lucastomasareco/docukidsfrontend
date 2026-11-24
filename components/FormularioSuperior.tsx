@@ -10,9 +10,11 @@ import useEscritorio from '../lib/useEscritorio';
 // 
 // Si se le pasa onCerrar, tocar FUERA de la tarjeta cierra el formulario.
 // Sin onCerrar se comporta como antes (Docs e Hijos no cambian).
-type Props = { children: ReactNode; onCerrar?: () => void };
+// pie (opcional): botones que quedan SIEMPRE visibles abajo de la tarjeta (por ejemplo Cancelar y Subir),
+// aunque el formulario se desplace o el teclado ocupe media pantalla. Sin pie, todo queda como antes.
+type Props = { children: ReactNode; onCerrar?: () => void; pie?: ReactNode };
 
-export default function FormularioSuperior({ children, onCerrar }: Props) {
+export default function FormularioSuperior({ children, onCerrar, pie }: Props) {
   const { height } = useWindowDimensions();
   // PC / portátil (ventana de 900 px o más): la tarjeta se angosta (ancho máximo) y queda centrada,
   // en vez de ocupar todo el ancho. El alto y todo lo de adentro quedan igual. En el celular, igual que siempre.
@@ -28,13 +30,26 @@ export default function FormularioSuperior({ children, onCerrar }: Props) {
           accessibilityLabel="Cerrar el formulario"
         />
       )}
-      <ScrollView
+      {pie ? (
+        <View style={[styles.tarjeta, styles.tarjetaConPie, { maxHeight: alturaMaxima }, escritorio && styles.tarjetaEscritorio]}>
+          <ScrollView
+            style={styles.zonaDesplazable}
+            contentContainerStyle={[styles.contenido, styles.contenidoConPie]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+          <View style={styles.pie}>{pie}</View>
+        </View>
+      ) : (
+        <ScrollView
         style={[styles.tarjeta, { maxHeight: alturaMaxima }, escritorio && styles.tarjetaEscritorio]}
         contentContainerStyle={styles.contenido}
         keyboardShouldPersistTaps="handled"
       >
         {children}
-      </ScrollView>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -54,6 +69,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   contenido: { padding: 16 },
+  // Con pie: la tarjeta es una columna (zona que se desplaza + botones fijos abajo).
+  tarjetaConPie: { overflow: 'hidden' },
+  zonaDesplazable: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  contenidoConPie: { paddingBottom: 8 },
+  pie: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, backgroundColor: '#fff' },
   // Para cambiar lo angosta que queda en PC, tocar solo este número (840).
   tarjetaEscritorio: { width: '100%', maxWidth: 840, alignSelf: 'center', marginHorizontal: 0 },
 });

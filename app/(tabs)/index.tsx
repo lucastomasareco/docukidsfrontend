@@ -1208,7 +1208,31 @@ export default function Docs() {
       </Caja>
 
       {mostrarFormulario && archivoElegido && (
-        <FormularioSuperior>
+        <FormularioSuperior
+          pie={
+            <>
+            <View style={styles.filaBotones}>
+              <TouchableOpacity
+                style={[styles.botonForm, styles.botonCancelar]}
+                onPress={cerrarFormulario}
+                disabled={subiendo}
+              >
+                <Text style={styles.botonTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
+                onPress={subirDocumento}
+                disabled={subiendo}
+              >
+                <Text style={styles.botonTexto}>{subiendo ? 'Subiendo...' : 'Subir'}</Text>
+              </TouchableOpacity>
+            </View>
+            {subiendo && (
+              <Text style={styles.textoSubiendo}>Subiendo a Drive y leyendo la fecha, puede tardar...</Text>
+            )}
+            </>
+          }
+        >
           {esImagen ? (
             <VistaPreviaImagen uri={archivoElegido.uri} />
           ) : (
@@ -1235,25 +1259,6 @@ export default function Docs() {
             valor={carpetaDestino}
             onCambiar={setCarpetaDestino}
           />
-          <View style={styles.filaBotones}>
-            <TouchableOpacity
-              style={[styles.botonForm, styles.botonCancelar]}
-              onPress={cerrarFormulario}
-              disabled={subiendo}
-            >
-              <Text style={styles.botonTexto}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.botonForm, styles.botonGuardar, { backgroundColor: tema.primary }]}
-              onPress={subirDocumento}
-              disabled={subiendo}
-            >
-              <Text style={styles.botonTexto}>{subiendo ? 'Subiendo...' : 'Subir'}</Text>
-            </TouchableOpacity>
-          </View>
-          {subiendo && (
-            <Text style={styles.textoSubiendo}>Subiendo a Drive y leyendo la fecha, puede tardar...</Text>
-          )}
         </FormularioSuperior>
       )}
 
