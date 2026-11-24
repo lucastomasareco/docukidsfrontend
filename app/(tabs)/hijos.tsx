@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   View,
   Image,
@@ -9,6 +9,7 @@ import {
   TextInput,
   StyleSheet,
   AccessibilityInfo,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,8 +53,20 @@ function inicial(nombre: string): string {
   return nombre.charAt(0).toUpperCase();
 }
 
+// En el celular no dibuja nada extra (solo deja pasar a sus hijos); en PC agrupa en una caja.
+function Caja({ activa, estilo, children }: { activa: boolean; estilo: any; children: ReactNode }) {
+  return activa ? <View style={estilo}>{children}</View> : <>{children}</>;
+}
+
+// Ancho máximo del contenido en PC (el mismo que en Docs).
+const ANCHO_MAX_CONTENIDO = 1100;
+
 export default function Hijos() {
-  const esEscritorio = useEscritorio(); // para el botón "Editar" de cada hijo
+  // PC: contenido centrado con ancho máximo y dos paneles (botón a la izquierda; buscador y lista a la derecha),
+  // como en Docs. En el celular no cambia nada. También lo usa el botón "Editar" de cada hijo.
+  const esEscritorio = useEscritorio();
+  const { width: anchoVentana } = useWindowDimensions();
+  const margenEscritorio = esEscritorio ? Math.max(16, (anchoVentana - ANCHO_MAX_CONTENIDO) / 2) : 16;
   const {
     hijos,
     seleccionadoId,
@@ -330,21 +343,25 @@ export default function Hijos() {
       colors={tema.backgroundGradient} 
       start={{ x: 0, y: 0 }} 
       end={{ x: 1, y: 1 }} 
-      style={styles.container}
+      style={[styles.container, esEscritorio && { paddingHorizontal: margenEscritorio }]}
     >
 
       {/* Solo aparece si en tu Drive quedaron carpetas de una cuenta anterior. */}
       {!mostrarFormulario && <TarjetaRecuperarDatos />}
 
+      <Caja activa={esEscritorio} estilo={styles.filaEscritorio}>
+      <Caja activa={esEscritorio} estilo={styles.panelIzq}>
       {!mostrarFormulario && (
         <TouchableOpacity
-          style={[styles.botonAgendarGrande, { backgroundColor: tema.primary }]}
+          style={[styles.botonAgendarGrande, { backgroundColor: tema.primary }, esEscritorio && styles.botonRegistrarCompacto]}
           onPress={() => setMostrarFormulario(true)}
           activeOpacity={0.85}
         >
           <Text style={styles.botonAgendarGrandeTexto}>👶  Registrar hijo</Text>
         </TouchableOpacity>
       )}
+      </Caja>
+      <Caja activa={esEscritorio} estilo={styles.panelDer}>
 
       {/* Buscador: mismo estilo que los títulos de carpeta de Docs. */}
       {hijos.length > 0 && !mostrarFormulario && (
@@ -485,7 +502,12 @@ export default function Hijos() {
                             <Ionicons name="pencil-outline" size={16} color="#1F1F1F" />
                           </TouchableOpacity>
                         )}
-                        {seleccionado && <Text style={[styles.check, { color: tema.primary }]}>✓</Text>}
+                        {seleccionado ? (
+                          <Text style={[styles.check, { color: tema.primary }]}>✓</Text>
+                        ) : esEscritorio ? (
+                          // Deja el lugar del ✓ reservado para que los botones queden alineados en todas las filas.
+                          <Text style={[styles.check, { opacity: 0 }]}>✓</Text>
+                        ) : null}
                         <TouchableOpacity
                           style={styles.botonLugares}
                           onPress={() => setHijoLugares(item)}
@@ -537,6 +559,8 @@ export default function Hijos() {
           </View>
         </>
       )}
+      </Caja>
+      </Caja>
       {hijoLugares && (
         <UltimosLugares hijoId={hijoLugares.id} hijoNombre={hijoLugares.name} onCerrar={() => setHijoLugares(null)} />
       )}
@@ -637,6 +661,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
   },
+  botonRegistrarCompacto: { paddingVertical: 12 },
+  // PC: panel izquierdo (botón) y derecho (buscador y lista), como en Docs.
+  filaEscritorio: { flex: 1, flexDirection: 'row', gap: 20 },
+  panelIzq: { width: 300 },
+  panelDer: { flex: 1, minWidth: 0 },
   botonAgendarGrandeTexto: { color: '#1F1F1F', fontSize: 20, fontWeight: 'bold' },
   // Botón "Editar" (solo PC): mismo borde del tema que los chips de carpeta.
   botonEditar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, marginRight: 8, borderRadius: 10, borderWidth: 1.5 },
