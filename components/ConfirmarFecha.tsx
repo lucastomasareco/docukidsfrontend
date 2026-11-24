@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, ScrollView, useWindowDimensions } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { api } from '../lib/api';
 import { useTheme } from '../context/ThemeContext';
@@ -49,6 +49,11 @@ function moverAnios(iso: string, delta: number): string {
 // la persona se detenga a leer antes de tocarlo.
 const ROJO_NO_VENCE = '#c62828';
 
+// Ancho máximo de la ventana en PC (en el celular ocupa el ancho disponible, como siempre).
+// Pregunta: chica, como la ventana de borrar un documento. Calendario: el ancho del formulario de subir.
+const ANCHO_PREGUNTA = 400;
+const ANCHO_CALENDARIO = 840;
+
 type Props = {
   visible: boolean;
   docId: number;
@@ -61,6 +66,7 @@ type Props = {
 
 export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaDetectada, onTerminar }: Props) {
   const { tema } = useTheme();
+  const { height: alto } = useWindowDimensions();
   const [modo, setModo] = useState<'pregunta' | 'elegir'>('pregunta');
   const [fechaElegida, setFechaElegida] = useState<string | null>(null);
   const [mesVisible, setMesVisible] = useState<string>(fechaDetectada ?? hoyISO());
@@ -112,7 +118,14 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.fondo}>
-        <View style={[styles.caja, { backgroundColor: tema.card }]}>
+        <View
+          style={[
+            styles.caja,
+            { backgroundColor: tema.card, maxWidth: modo === 'pregunta' ? ANCHO_PREGUNTA : ANCHO_CALENDARIO, maxHeight: alto * 0.92 },
+          ]}
+        >
+          {/* Si la pantalla es muy baja, la ventana se desplaza en vez de cortarse. */}
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {modo === 'pregunta' ? (
             <>
               <Text style={styles.documento} numberOfLines={1}>{nombreDocumento}</Text>
@@ -176,7 +189,7 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
                 disabled={guardando}
                 accessibilityLabel="Este documento no vence"
               >
-                <Text style={[styles.textoBoton, { color: '#fff' }]}>No vence</Text>
+                <Text style={[styles.textoBoton, { color: ROJO_NO_VENCE }]}>No vence</Text>
               </TouchableOpacity>
 
               {!fechaDetectada && (
@@ -219,6 +232,7 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
                   textDayFontSize: 17,
                   textMonthFontSize: 19,
                   textDayHeaderFontSize: 15,
+                  weekVerticalMargin: 3,
                 }}
               />
 
@@ -249,6 +263,7 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
               </TouchableOpacity>
             </>
           )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -256,26 +271,26 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
 }
 
 const styles = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  caja: { borderRadius: 16, padding: 20, elevation: 8 },
-  documento: { fontSize: 16, color: '#3F3F3F', textAlign: 'center', marginBottom: 8 },
-  pregunta: { fontSize: 20, color: '#1F1F1F', textAlign: 'center', marginVertical: 4 },
-  fecha: { fontSize: 26, fontWeight: 'bold', color: '#1F1F1F', textAlign: 'center', marginVertical: 8 },
+  fondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  caja: { width: '100%', borderRadius: 20, padding: 18, elevation: 8 },
+  documento: { fontSize: 15, color: '#3F3F3F', textAlign: 'center', marginBottom: 6 },
+  pregunta: { fontSize: 18, lineHeight: 25, color: '#1F1F1F', textAlign: 'center', marginVertical: 4 },
+  fecha: { fontSize: 24, fontWeight: 'bold', color: '#1F1F1F', textAlign: 'center', marginVertical: 6 },
   boton: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 3,
+    borderWidth: 2,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
   },
-  botonRojo: { backgroundColor: ROJO_NO_VENCE, borderColor: ROJO_NO_VENCE },
+  botonRojo: { backgroundColor: 'transparent', borderColor: ROJO_NO_VENCE },
   botonDeshabilitado: { opacity: 0.4 },
-  textoBoton: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F' },
-  separador: { height: 16 },
-  enlace: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
-  textoEnlace: { fontSize: 17, color: '#1F1F1F', textDecorationLine: 'underline' },
-  filaAnio: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 },
-  botonAnio: { borderWidth: 2, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  textoAnio: { fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
-  fechaElegida: { fontSize: 19, fontWeight: 'bold', color: '#1F1F1F', textAlign: 'center', marginTop: 8 },
+  textoBoton: { fontSize: 17, fontWeight: 'bold', color: '#1F1F1F' },
+  separador: { height: 8 },
+  enlace: { alignItems: 'center', paddingVertical: 12, marginTop: 2 },
+  textoEnlace: { fontSize: 16, color: '#1F1F1F', textDecorationLine: 'underline' },
+  filaAnio: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
+  botonAnio: { borderWidth: 2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 },
+  textoAnio: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
+  fechaElegida: { fontSize: 17, fontWeight: 'bold', color: '#1F1F1F', textAlign: 'center', marginTop: 6 },
 });
