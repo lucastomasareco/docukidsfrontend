@@ -3,17 +3,22 @@ import { useTheme } from '../context/ThemeContext';
 import { Carpeta, SUELTO } from '../lib/carpetas';
 
 const TEXTO = '#1F1F1F';
+// Rojo fijo (el mismo de "No vence"): a propósito NO usa el color del tema, para que se destaque entre las opciones.
+const ROJO_ACCION = '#c62828';
 
 type Props = {
   etiqueta: string;
   carpetas: Carpeta[];
   valor: string; // id de carpeta o SUELTO
   onCambiar: (id: string) => void;
+  // Opcional: botón extra al final de la fila (por ejemplo "Cambiar fecha" al editar un documento).
+  // Va con borde rojo y sin relleno. Sin esta prop, el selector se ve y funciona igual que siempre.
+  accionExtra?: { texto: string; onPress: () => void; deshabilitada?: boolean };
 };
 
 // Botoncitos para elegir en qué carpeta va un documento (al subirlo o al editarlo).
 // La última opción es "Suelto": el documento queda siempre a la vista, fuera de las carpetas.
-export default function SelectorCarpeta({ etiqueta, carpetas, valor, onCambiar }: Props) {
+export default function SelectorCarpeta({ etiqueta, carpetas, valor, onCambiar, accionExtra }: Props) {
   const { tema } = useTheme();
   const opciones = [...carpetas.map((c) => ({ id: c.id, nombre: c.nombre })), { id: SUELTO, nombre: 'Suelto (a la vista)' }];
 
@@ -41,6 +46,18 @@ export default function SelectorCarpeta({ etiqueta, carpetas, valor, onCambiar }
             </TouchableOpacity>
           );
         })}
+        {accionExtra && (
+          <TouchableOpacity
+            onPress={accionExtra.onPress}
+            disabled={accionExtra.deshabilitada}
+            activeOpacity={0.7}
+            style={[styles.opcion, styles.opcionExtra]}
+            accessibilityRole="button"
+            accessibilityLabel={accionExtra.texto}
+          >
+            <Text style={[styles.texto, styles.textoExtra]}>{accionExtra.texto}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -53,4 +70,6 @@ const styles = StyleSheet.create({
   opcion: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1.5 },
   texto: { fontSize: 14, color: TEXTO },
   textoElegido: { fontWeight: 'bold' },
+  opcionExtra: { borderColor: ROJO_ACCION, backgroundColor: 'transparent' },
+  textoExtra: { color: ROJO_ACCION, fontWeight: '600' },
 });

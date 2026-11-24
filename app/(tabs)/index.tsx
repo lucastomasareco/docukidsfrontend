@@ -136,6 +136,8 @@ export default function Docs() {
   const [editando, setEditando] = useState<Documento | null>(null);
   const [nombreEditado, setNombreEditado] = useState('');
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  // Calendario para cambiar la fecha del documento que se está editando (botón rojo de Editar).
+  const [cambiandoFecha, setCambiandoFecha] = useState(false);
   // Documento recién subido que está esperando que el usuario confirme su fecha.
   const [porConfirmar, setPorConfirmar] = useState<{
     docId: number;
@@ -1293,6 +1295,11 @@ export default function Docs() {
             carpetas={carpetas}
             valor={carpetaEdicion}
             onCambiar={setCarpetaEdicion}
+            accionExtra={{
+              texto: editando.status === 'sin_fecha' ? 'Agregar fecha' : 'Cambiar fecha',
+              onPress: () => setCambiandoFecha(true),
+              deshabilitada: guardandoEdicion,
+            }}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
@@ -1396,6 +1403,20 @@ export default function Docs() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {editando && cambiandoFecha && (
+        <ConfirmarFecha
+          visible
+          docId={editando.id}
+          nombreDocumento={editando.name}
+          fechaDetectada={editando.expiry_date}
+          empezarEligiendo
+          onTerminar={() => {
+            setCambiandoFecha(false);
+            cargarDocumentos();
+          }}
+        />
+      )}
 
       {porConfirmar && (
         <ConfirmarFecha

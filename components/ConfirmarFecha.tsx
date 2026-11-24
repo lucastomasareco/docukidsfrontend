@@ -60,14 +60,17 @@ type Props = {
   nombreDocumento: string;
   // Fecha que detectó el OCR ('YYYY-MM-DD') o null si no encontró ninguna.
   fechaDetectada: string | null;
+  // true = abre directo el calendario (para cambiar la fecha de un documento ya subido, desde Editar).
+  // "Volver" cierra sin cambios. Sin esta prop, funciona como siempre (pregunta "¿Es correcto?").
+  empezarEligiendo?: boolean;
   // Se llama al terminar (con o sin cambios). El padre recarga la lista.
   onTerminar: () => void;
 };
 
-export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaDetectada, onTerminar }: Props) {
+export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaDetectada, empezarEligiendo = false, onTerminar }: Props) {
   const { tema } = useTheme();
   const { height: alto } = useWindowDimensions();
-  const [modo, setModo] = useState<'pregunta' | 'elegir'>('pregunta');
+  const [modo, setModo] = useState<'pregunta' | 'elegir'>(empezarEligiendo ? 'elegir' : 'pregunta');
   const [fechaElegida, setFechaElegida] = useState<string | null>(null);
   const [mesVisible, setMesVisible] = useState<string>(fechaDetectada ?? hoyISO());
   // Se incrementa solo al saltar de año, para forzar al calendario a mostrar ese mes.
@@ -258,8 +261,27 @@ export default function ConfirmarFecha({ visible, docId, nombreDocumento, fechaD
                 <Text style={styles.textoBoton}>Guardar fecha</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => { setErrorGuardar(null); setModo('pregunta'); }} disabled={guardando} style={styles.enlace}>
-                <Text style={styles.textoEnlace}>Volver</Text>
+              {empezarEligiendo && (
+                <TouchableOpacity
+                  style={[styles.boton, styles.botonRojo]}
+                  onPress={() => enviar({ no_expiry: true })}
+                  disabled={guardando}
+                  accessibilityLabel="Este documento no vence"
+                >
+                  <Text style={[styles.textoBoton, { color: ROJO_NO_VENCE }]}>No vence</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => {
+                  setErrorGuardar(null);
+                  if (empezarEligiendo) cerrar();
+                  else setModo('pregunta');
+                }}
+                disabled={guardando}
+                style={styles.enlace}
+              >
+                <Text style={styles.textoEnlace}>{empezarEligiendo ? 'Cancelar' : 'Volver'}</Text>
               </TouchableOpacity>
             </>
           )}
