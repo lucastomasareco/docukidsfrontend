@@ -23,6 +23,7 @@ import { TarjetaError } from '../../components/AvisoError';
 import EsperaServidor from '../../components/EsperaServidor';
 import EstadoVacio from '../../components/EstadoVacio';
 import SelectorHijo from '../../components/SelectorHijo';
+import useEscritorio from '../../lib/useEscritorio';
 import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
@@ -125,6 +126,7 @@ export default function Calendario() {
   // En pantallas angostas (celular o ventana chica) queda la columna de siempre.
   const { width: anchoPantalla } = useWindowDimensions();
   const esAncho = anchoPantalla >= ANCHO_MINIMO_DOS_COLUMNAS;
+  const esEscritorio = useEscritorio(); // para el botón "Editar" de cada turno
   // Altura real de la columna del calendario (para repartir los renglones y que llegue hasta el botón +).
   const [alturaCalendario, setAlturaCalendario] = useState(0);
 
@@ -833,6 +835,19 @@ export default function Calendario() {
                       </TouchableOpacity>
                     )}
                   </View>
+                  {/* PC: botón "Editar" visible (en el celular se edita manteniendo presionado). */}
+                  {esEscritorio && (
+                    <TouchableOpacity
+                      style={[styles.botonEditar, { borderColor: tema.primary }]}
+                      onPress={() => abrirEdicion(item)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar el turno ${item.title}`}
+                    >
+                      <Text style={styles.botonEditarTexto}>Editar</Text>
+                      <Ionicons name="pencil-outline" size={16} color="#1F1F1F" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
                 )}
               </Animated.View>
@@ -953,6 +968,9 @@ const styles = StyleSheet.create({
   },
   // Pantalla ancha: fila de arriba = [selector de hijo (ancho del calendario)] [buscador].
   filaSuperior: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
+  // Botón "Editar" (solo PC): mismo borde del tema que los chips de carpeta.
+  botonEditar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, marginRight: 8, borderRadius: 10, borderWidth: 1.5 },
+  botonEditarTexto: { fontSize: 14, fontWeight: '600', color: '#1F1F1F' },
   buscadorAncho: { flex: 1, marginBottom: 0 },
   // Celular: el buscador va centrado entre el calendario y la primera tarjeta de turno.
   // Espacio de arriba = marginTop (+ el aire propio del calendario). Espacio de abajo = marginBottom + 10
