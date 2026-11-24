@@ -8,6 +8,7 @@ import {
   TextInput,
   StyleSheet,
   Platform,
+  Linking,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
@@ -28,6 +29,7 @@ import { ErrorAmigable, interpretarError } from '../../lib/errores';
 import FormularioSuperior from '../../components/FormularioSuperior';
 import SelectorFechaHora from '../../components/SelectorFechaHora';
 import SelectorLugar from '../../components/SelectorLugar';
+import SelectorDocumentos from '../../components/SelectorDocumentos';
 import VentanaMapa from '../../components/VentanaMapa';
 import {
   camposParaBackend,
@@ -61,6 +63,8 @@ type Turno = CamposLugarTurno & {
   date: string; // 'YYYY-MM-DD'
   time: string | null; // 'HH:MM:SS' (así la devuelve Postgres)
   notes: string | null;
+  // Documentos de Docs vinculados al turno (el backend los devuelve siempre; vacío si no tiene).
+  documents?: { id: number; name: string; drive_link: string | null }[];
 };
 
 // Fila "especial" de la lista: va entre los turnos próximos y los pasados y lleva
@@ -111,6 +115,8 @@ export default function Calendario() {
   const [notasNuevas, setNotasNuevas] = useState('');
   // Lugar del turno (v2.7) y turno cuyo mapa se está mirando.
   const [lugarNuevo, setLugarNuevo] = useState<Lugar>(LUGAR_VACIO);
+  // Ids de los documentos de Docs vinculados al turno que se está creando/editando.
+  const [documentosNuevos, setDocumentosNuevos] = useState<number[]>([]);
   const [turnoConMapa, setTurnoConMapa] = useState<Turno | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -266,6 +272,7 @@ export default function Calendario() {
     setTituloNuevo('');
     setHoraNueva('');
     setNotasNuevas('');
+    setDocumentosNuevos([]);
     // Si se agenda en un día distinto al filtrado, se quita el filtro para que el
     // turno nuevo se vea en la lista al guardarlo.
     if (fecha && fecha !== diaSeleccionado) setDiaSeleccionado(null);
@@ -297,6 +304,7 @@ export default function Calendario() {
     setHoraNueva(turno.time ? horaCorta(turno.time) : '');
     setNotasNuevas(turno.notes ?? '');
     setLugarNuevo(lugarDeTurno(turno));
+    setDocumentosNuevos((turno.documents ?? []).map((d) => d.id));
     setMostrarFormulario(true);
   };
 
@@ -307,6 +315,7 @@ export default function Calendario() {
     setHoraNueva('');
     setNotasNuevas('');
     setLugarNuevo(LUGAR_VACIO);
+    setDocumentosNuevos([]);
   };
 
   const crearTurno = async () => {
@@ -325,6 +334,7 @@ export default function Calendario() {
           time: horaNueva || null, // sin hora = evento de todo el día
           notes: notasNuevas.trim() || null,
           ...camposParaBackend(lugarNuevo, true), // null en los cuatro = quitar el lugar
+          document_ids: documentosNuevos, // lista completa; [] = sin documentos
         });
       } else {
         await api.post('/appointments', {
@@ -334,6 +344,7 @@ export default function Calendario() {
           time: horaNueva || undefined, // sin hora = evento de todo el día
           notes: notasNuevas.trim() || undefined,
           ...camposParaBackend(lugarNuevo, false),
+          document_ids: documentosNuevos.length > 0 ? documentosNuevos : undefined,
         });
       }
       cerrarFormulario();
@@ -354,6 +365,19 @@ export default function Calendario() {
       });
     } finally {
       setGuardando(false);
+    }
+  };
+
+  // Abre un documento vinculado (Drive), igual que al tocarlo en Docs.
+  const abrirDocumentoDeTurno = async (d: { name: string; drive_link: string | null }) => {
+    if (!d.drive_link) {
+      mostrarAviso('No se puede abrir', 'Este documento no tiene un enlace a Drive.', { icono: 'link-outline' });
+      return;
+    }
+    try {
+      await Linking.openURL(d.drive_link);
+    } catch (e) {
+      mostrarError(e, { que: 'abrir el documento', onReintentar: () => abrirDocumentoDeTurno(d) });
     }
   };
 
@@ -834,6 +858,19 @@ export default function Calendario() {
                         <Text style={styles.lugarVer}>Ver mapa</Text>
                       </TouchableOpacity>
                     )}
+                    {(item.documents ?? []).map((d) => (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={styles.lugarFila}
+                        onPress={() => abrirDocumentoDeTurno(d)}
+                        activeOpacity={0.6}
+                        accessibilityLabel={`Abrir el documento ${d.name}`}
+                      >
+                        <Ionicons name="document-text-outline" size={16} color="#1F1F1F" />
+                        <Text style={styles.lugarTexto} numberOfLines={1}>{d.name}</Text>
+                        {d.drive_link ? <Text style={styles.lugarVer}>Abrir</Text> : null}
+                      </TouchableOpacity>
+                    ))}
                   </View>
                   {/* PC: botón "Editar" visible (en el celular se edita manteniendo presionado). */}
                   {esEscritorio && (
@@ -891,6 +928,12 @@ export default function Calendario() {
             onChangeText={setNotasNuevas}
             returnKeyType="done"
             onSubmitEditing={() => { if (!guardando && !eliminando) crearTurno(); }}
+          />
+          <SelectorDocumentos
+            childId={seleccionadoId}
+            seleccionados={documentosNuevos}
+            onCambiar={setDocumentosNuevos}
+            deshabilitado={guardando || eliminando}
           />
           <View style={styles.filaBotones}>
             <TouchableOpacity
