@@ -1160,6 +1160,19 @@ export default function Docs() {
                               {item.doc.expiry_date ? ` · ${fechaCorta(item.doc.expiry_date)}` : ''}
                             </Text>
                           </View>
+                          {/* PC: botón "Editar" visible (en el celular se edita manteniendo presionado). */}
+                          {esEscritorio && (
+                            <TouchableOpacity
+                              style={[styles.botonEditar, { borderColor: tema.primary }]}
+                              onPress={() => abrirEdicion(item.doc)}
+                              activeOpacity={0.7}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Editar ${item.doc.name}`}
+                            >
+                              <Text style={styles.botonEditarTexto}>Editar</Text>
+                              <Ionicons name="pencil-outline" size={16} color="#1F1F1F" />
+                            </TouchableOpacity>
+                          )}
                           <AsaArrastre
                             bloqueado={arrastreBloqueado || buscando}
                             onInicio={() => iniciarArrastre(item.doc, item.clave)}
@@ -1539,6 +1552,9 @@ const styles = StyleSheet.create({
   nombrePDF: { fontSize: 15, color: '#1F1F1F' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
   filaBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+  // Botón "Editar" de cada documento (solo PC): mismo borde del tema que los chips de carpeta.
+  botonEditar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, marginRight: 8, borderRadius: 10, borderWidth: 1.5 },
+  botonEditarTexto: { fontSize: 14, fontWeight: '600', color: '#1F1F1F' },
   botonForm: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   botonCancelar: { backgroundColor: '#D0D0D0' },
   botonGuardar: { backgroundColor: '#1976d2' },
