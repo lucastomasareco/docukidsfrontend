@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, AppState, Modal, TextInput, Platform, Share, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -19,6 +19,41 @@ import CampoContrasena from '../../components/CampoContrasena';
 import TarjetaPapelera from '../../components/TarjetaPapelera';
 import { codigoCompleto, MAX_FAMILIA, formatearCodigo, mensajeEliminarCuenta, msRestantes, normalizarCodigo, textoInvitacion, textoVencimiento } from '../../lib/familia';
 import { copiarTexto } from '../../lib/portapapeles';
+
+// Bloque de Ajustes: título, subtítulo opcional y contenido. Con tarjeta por defecto.
+function Seccion({
+  titulo,
+  subtitulo,
+  conTarjeta = true,
+  peligro = false,
+  children,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  conTarjeta?: boolean;
+  peligro?: boolean;
+  children: ReactNode;
+}) {
+  const { tema } = useTheme();
+  return (
+    <View style={styles.seccion}>
+      <Text accessibilityRole="header" style={[styles.seccionTitulo, peligro && { color: '#c62828' }]}>{titulo}</Text>
+      {subtitulo ? <Text style={styles.seccionSub}>{subtitulo}</Text> : null}
+      {conTarjeta ? (
+        <View
+          style={[
+            styles.seccionCuerpo,
+            { backgroundColor: tema.card, borderColor: peligro ? '#c62828' : tema.primary },
+          ]}
+        >
+          {children}
+        </View>
+      ) : (
+        <View style={styles.seccionSinTarjeta}>{children}</View>
+      )}
+    </View>
+  );
+}
 
 export default function Ajustes() {
   const { cerrarSesion, eliminarCuenta, cambiarContrasena, session } = useAuth();
@@ -66,6 +101,8 @@ export default function Ajustes() {
   const [conectado, setConectado] = useState<boolean | null>(null);
   // true mientras el usuario está en el navegador autorizando Google.
   const esperandoGoogle = useRef(false);
+  const [verEliminar, setVerEliminar] = useState(false);
+  const [verTemas, setVerTemas] = useState(false);
 
   // Pregunta al backend si Google quedó conectado. Es la ÚNICA fuente de verdad:
   // no dependemos de que el navegador "vuelva solo" a la app.
@@ -117,8 +154,6 @@ export default function Ajustes() {
   //     que el navegador no la bloquee);
   //  2) preguntamos al backend cada pocos segundos si Google quedó conectado;
   //  3) apenas lo está (o si se cierra la pestaña) avisamos y cerramos la pestaña.
-     // VERSIÓN DE ESCRITORIO (navegador o Electron): la lógica vive en lib/googleWeb.ts,
-   // acá solo manejamos el estado de la pantalla y los avisos.
    const conectarGoogleWeb = async () => {
      setConectando(true);
      esperandoGoogle.current = true;
@@ -356,29 +391,29 @@ export default function Ajustes() {
   };
 
   const ejecutarDisolverFamilia = async () => {
-    await correrAccionFamilia(
-      disolver,
-      'disolver la familia',
-      { titulo: 'Familia disuelta', mensaje: 'Tus hijos, documentos y turnos siguen en tu cuenta.' },
-      ejecutarDisolverFamilia
-    );
-  };
+  await correrAccionFamilia(
+    disolver,
+    'dejar de compartir',
+    { titulo: 'Listo, ya no compartís', mensaje: 'Tus hijos, documentos y turnos siguen en tu cuenta. Podés volver a compartir cuando quieras.' },
+    ejecutarDisolverFamilia
+  );
+};
 
   const confirmarDisolverFamilia = async () => {
-    const otro = familia?.members.find((m) => m.role === 'member');
-    const seguro = await confirmar({
-      titulo: '¿Disolver la familia?',
-      mensaje:
-        (otro
-          ? `${otro.email} dejará de ver los hijos, documentos y turnos y quedará con la cuenta vacía.\n\n`
-          : '') +
-        'Tus hijos, documentos y turnos siguen en tu cuenta. Después podés crear una familia nueva.',
-      textoConfirmar: 'Disolver familia',
-      peligro: true,
-      icono: 'warning-outline',
-    });
-    if (seguro) await ejecutarDisolverFamilia();
-  };
+  const otro = familia?.members.find((m) => m.role === 'member');
+  const seguro = await confirmar({
+    titulo: '¿Dejar de compartir con tu familia?',
+    mensaje:
+      'Tus hijos, documentos y turnos siguen en tu cuenta. Después podés crear una familia nueva.\n\n' +
+      (otro
+        ? `${otro.email} dejará de ver los hijos, documentos y turnos y quedará con la cuenta vacía.`
+        : ''),
+    textoConfirmar: 'Sí, dejar de compartir',
+    peligro: true,
+    icono: 'warning-outline',
+  });
+  if (seguro) await ejecutarDisolverFamilia();
+};
 
   const cerrarFormularioClave = () => {
     setClaveVisible(false);
@@ -451,245 +486,307 @@ export default function Ajustes() {
 
   return (
     <LinearGradient colors={tema.backgroundGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.email}>{session?.user.email}</Text>
-        
-        {conectado === null && errorEstado ? (
-          <View style={{ alignSelf: 'stretch' }}>
-            <TarjetaError variante="compacta" error={errorEstado} onReintentar={verificarConexion} />
-          </View>
-        ) : (
-          <Text style={styles.estadoGoogle}>
-            {conectado === null
-              ? `${esMiembro ? 'Google del titular' : 'Google'}: comprobando…`
-              : conectado
-                ? `${esMiembro ? 'Google del titular' : 'Google'}: ✅ Conectado`
-                : `${esMiembro ? 'Google del titular' : 'Google'}: ⚠️ No conectado`}
-          </Text>
-        )}
-        {esMiembro ? (
-          <Text style={styles.ayudaAncha}>
-            {conectado === false
-              ? 'Tu familia usa la cuenta de Google del titular, y todavía no la conectó. Pedile que lo haga desde Ajustes: hasta entonces no se pueden subir documentos ni agendar turnos.'
-              : 'Tu familia usa la cuenta de Google del titular. Solo el titular puede conectarla o reconectarla.'}
-          </Text>
-        ) : (
-          <>
+      
+      
+            <ScrollView contentContainerStyle={styles.container}>
+        {/* ---------- CUENTA ---------- */}
+
+        <Seccion titulo="Cuenta">
+          <Text style={styles.email}>{session?.user.email}</Text>
           <TouchableOpacity
-            style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
-            onPress={conectarGoogle}
-            disabled={conectando}
+            style={[styles.boton, styles.botonAncho, { backgroundColor: tema.primary }]}
+            onPress={() => setClaveVisible(true)}
           >
-            <Text style={styles.botonTexto}>
-              {conectando ? 'Conectando...' : conectado ? 'Reconectar con Google' : 'Conectar con Google'}
-            </Text>
+            <Text style={styles.botonTexto}>Cambiar contraseña</Text>
           </TouchableOpacity>
-          <Text style={styles.ayuda}>Necesario para subir documentos, agendar turnos y recibir avisos por email.</Text>
-          </>
-        )}
+          <TouchableOpacity
+            style={[styles.boton, styles.botonAncho, { backgroundColor: tema.primary }]}
+            onPress={cerrarSesion}
+          >
+            <Text style={styles.botonTexto}>Cerrar sesión</Text>
+          </TouchableOpacity>
 
-        <View style={styles.separador} />
-        <Text style={styles.tituloSeccion}>Familia</Text>
-        <Text style={styles.subtituloSeccion}>Compartí todo con otra persona</Text>
+          <View style={styles.divisorCuenta} />
+          <TouchableOpacity
+            onPress={() => setVerEliminar((v) => !v)}
+            style={styles.enlaceEliminar}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: verEliminar }}
+          >
+            <Ionicons name={verEliminar ? 'chevron-down' : 'chevron-forward'} size={18} color="#3F3F3F" />
+            <Text style={styles.enlaceEliminarTexto}>Eliminar mi cuenta</Text>
+          </TouchableOpacity>
 
-        {familia === null && cargandoFamilia ? (
-          <Text style={styles.estadoGoogle}>Familia: comprobando…</Text>
-        ) : familia === null && errorFamilia ? (
-          <View style={{ alignSelf: 'stretch' }}>
-            <TarjetaError variante="compacta" error={errorFamilia} onReintentar={() => cargarFamilia()} />
-          </View>
-        ) : familia === null ? (
-          <>
-            <Text style={styles.ayudaAncha}>
-              Una familia es de hasta {MAX_FAMILIA} personas (por ejemplo, madre, padre y abuelos) que ven los mismos hijos, documentos y
-              turnos. Quien la crea es el titular: se usa su cuenta de Google. Si ya te dieron un código, tocá
-              "Unirme con código".
-            </Text>
-            <TouchableOpacity
-              style={[styles.botonGoogle, { backgroundColor: tema.primary }]}
-              onPress={ejecutarCrearFamilia}
-              disabled={creandoFamilia}
-            >
-              <Text style={styles.botonTexto}>{creandoFamilia ? 'Creando…' : 'Crear familia'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.botonGoogle, { borderWidth: 2, borderColor: tema.primary }]}
-              onPress={() => setUnirseVisible(true)}
-              disabled={creandoFamilia}
-            >
-              <Text style={styles.botonTexto}>Unirme con código</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={[styles.tarjetaFamilia, { backgroundColor: tema.card, borderColor: tema.primary }]}>
-            <Text style={styles.familiaResumen}>
-              {familia.role === 'owner' ? 'Sos el titular de la familia' : 'Sos miembro de la familia'}
-            </Text>
-            <Text style={styles.familiaDetalle}>{familia.members.length} de {MAX_FAMILIA} personas</Text>
-            {familia.members.map((m) => (
-              <View key={m.id} style={styles.filaMiembro}>
-                <Text style={styles.miembroEmail} numberOfLines={1}>
-                  {m.email}
-                  {m.id === session?.user.id ? ' (vos)' : ''}
-                </Text>
-                <View style={[styles.etiquetaRol, { backgroundColor: tema.primary }]}>
-                  <Text style={styles.etiquetaRolTexto}>{m.role === 'owner' ? 'Titular' : 'Miembro'}</Text>
+          {verEliminar && (
+            <View style={{ alignSelf: 'stretch', gap: 12 }}>
+              <Text style={styles.ayudaAncha}>
+                {esMiembro
+                  ? 'Si querés irte, podés borrar tu cuenta. Saldrás de la familia y se borrará tu usuario; los datos del titular no se tocan.'
+                  : 'Si querés irte, podés borrar tu cuenta. Antes te explicamos qué pasa con tus archivos.'}
+              </Text>
+
+              {!esMiembro && (
+                <View style={[styles.opcionesDrive, { alignSelf: 'stretch' }]}>
+                  <Text style={[styles.opcionesDriveTitulo, { color: tema.textPrimary }]}>
+                    Si eliminás tu cuenta, ¿qué pasa con tus archivos de Google Drive?
+                  </Text>
+                  {[
+                    { valor: false, titulo: 'Conservarlos en mi Drive', detalle: 'Se borra tu cuenta de Docukids, pero la carpeta Docukids y tus archivos siguen en tu Drive.' },
+                    { valor: true, titulo: 'Mandarlos a la papelera de Drive', detalle: 'Además, la carpeta Docukids de tu Drive va a la papelera de Drive. Si volvés a registrarte con la misma cuenta de Google, Docukids te ofrece recuperarla (hasta unos 30 días).' },
+                  ].map((op) => {
+                    const elegida = borrarDrive === op.valor;
+                    return (
+                      <TouchableOpacity
+                        key={String(op.valor)}
+                        style={[styles.opcionDrive, { borderColor: elegida ? tema.primary : '#bbb' }]}
+                        onPress={() => setBorrarDrive(op.valor)}
+                        disabled={eliminando}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: elegida }}
+                      >
+                        <View style={[styles.radioDrive, { borderColor: elegida ? tema.primary : '#888' }]}>
+                          {elegida && <View style={[styles.radioDriveRelleno, { backgroundColor: tema.primary }]} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.opcionDriveTitulo, { color: tema.textPrimary }]}>{op.titulo}</Text>
+                          <Text style={[styles.opcionDriveDetalle, { color: tema.textSecondary }]}>{op.detalle}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                {familia.role === 'owner' && m.role === 'member' && (
-                  <TouchableOpacity
-                    style={styles.botonQuitar}
-                    onPress={() => confirmarQuitarMiembro(m.id, m.email)}
-                    disabled={ocupadoFamilia}
-                    accessibilityLabel={`Quitar a ${m.email}`}
-                  >
-                    <Text style={styles.botonQuitarTexto}>Quitar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-            <Text style={styles.familiaDetalle}>
-              {familia.role === 'owner'
-                ? 'Todos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
-                : 'Todos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
-            </Text>
+              )}
 
-            {familia.role === 'owner' && familia.members.length < MAX_FAMILIA && (
-              <View style={styles.bloqueInvitar}>
-                {hayCodigo && msRestantes(familia, ahora) > 0 ? (
-                  <>
-                    <Text style={styles.familiaDetalle}>Código de invitación</Text>
-                    <Text style={styles.codigoGrande} selectable accessibilityLabel={`Código ${familia.invite_code}`}>
-                      {formatearCodigo(familia.invite_code!)}
+              <TouchableOpacity
+                style={[styles.botonEliminar, styles.botonAncho]}
+                onPress={confirmarEliminarCuenta}
+                disabled={eliminando}
+              >
+                <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Seccion>
+
+        {/* ---------- GOOGLE ---------- */}
+        <Seccion titulo="Google" subtitulo="Drive y Calendar">
+          {conectado === null && errorEstado ? (
+            <View style={{ alignSelf: 'stretch' }}>
+              <TarjetaError variante="compacta" error={errorEstado} onReintentar={verificarConexion} />
+            </View>
+          ) : (
+            <Text style={styles.estadoGoogle}>
+              {conectado === null
+                ? `${esMiembro ? 'Google del titular' : 'Google'}: comprobando…`
+                : conectado
+                  ? `${esMiembro ? 'Google del titular' : 'Google'}: ✅ Conectado`
+                  : `${esMiembro ? 'Google del titular' : 'Google'}: ⚠️ No conectado`}
+            </Text>
+          )}
+          {esMiembro ? (
+            <Text style={styles.ayudaAncha}>
+              {conectado === false
+                ? 'Tu familia usa la cuenta de Google del titular, y todavía no la conectó. Pedile que lo haga desde Ajustes: hasta entonces no se pueden subir documentos ni agendar turnos.'
+                : 'Tu familia usa la cuenta de Google del titular. Solo el titular puede conectarla o reconectarla.'}
+            </Text>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.botonGoogle, styles.botonAncho, { backgroundColor: tema.primary }]}
+                onPress={conectarGoogle}
+                disabled={conectando}
+              >
+                <Text style={styles.botonTexto}>
+                  {conectando ? 'Conectando...' : conectado ? 'Reconectar con Google' : 'Conectar con Google'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.ayudaAncha}>
+                Necesario para subir documentos, agendar turnos y recibir avisos por email.
+              </Text>
+            </>
+          )}
+        </Seccion>
+
+        {/* ---------- FAMILIA ---------- */}
+        <Seccion titulo="Familia" subtitulo="Compartí todo con otras personas">
+          {familia === null && cargandoFamilia ? (
+            <Text style={styles.estadoGoogle}>Familia: comprobando…</Text>
+          ) : familia === null && errorFamilia ? (
+            <View style={{ alignSelf: 'stretch' }}>
+              <TarjetaError variante="compacta" error={errorFamilia} onReintentar={() => cargarFamilia()} />
+            </View>
+          ) : familia === null ? (
+            <>
+              <Text style={styles.ayudaAncha}>
+                Una familia es de hasta {MAX_FAMILIA} personas (por ejemplo, madre, padre y abuelos) que ven los mismos hijos, documentos y
+                turnos. Quien la crea es el titular: se usa su cuenta de Google. Si ya te dieron un código, tocá
+                "Unirme con código".
+              </Text>
+              <TouchableOpacity
+                style={[styles.botonGoogle, styles.botonAncho, { backgroundColor: tema.primary }]}
+                onPress={ejecutarCrearFamilia}
+                disabled={creandoFamilia}
+              >
+                <Text style={styles.botonTexto}>{creandoFamilia ? 'Creando…' : 'Crear familia'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.botonGoogle, styles.botonAncho, { borderWidth: 2, borderColor: tema.primary }]}
+                onPress={() => setUnirseVisible(true)}
+                disabled={creandoFamilia}
+              >
+                <Text style={styles.botonTexto}>Unirme con código</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.familiaInterior}>
+              <Text style={styles.familiaResumen}>
+                {familia.role === 'owner' ? 'Sos el titular de la familia' : 'Sos miembro de la familia'}
+              </Text>
+              <Text style={styles.familiaDetalle}>{familia.members.length} de {MAX_FAMILIA} personas</Text>
+              <View style={styles.listaMiembros}>
+                {familia.members.map((m, i) => (
+                  <View key={m.id} style={[styles.filaMiembro, i > 0 && styles.filaMiembroSeparada]}>
+                    <Text style={styles.miembroEmail} numberOfLines={1}>
+                      {m.email}
+                      {m.id === session?.user.id ? ' (vos)' : ''}
                     </Text>
-                    <Text style={styles.familiaDetalle}>
-                      {textoVencimiento(msRestantes(familia, ahora))}. Sirve una sola vez.
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
-                      onPress={copiarOCompartirCodigo}
-                    >
-                      <Text style={styles.botonTexto}>
-                        {Platform.OS === 'web' ? 'Copiar invitación' : 'Compartir invitación'}
+                    <View style={[styles.etiquetaRol, { backgroundColor: tema.primary }]}>
+                      <Text style={styles.etiquetaRolTexto}>{m.role === 'owner' ? 'Titular' : 'Miembro'}</Text>
+                    </View>
+                    {familia.role === 'owner' && m.role === 'member' && (
+                      <TouchableOpacity
+                        style={styles.botonQuitar}
+                        onPress={() => confirmarQuitarMiembro(m.id, m.email)}
+                        disabled={ocupadoFamilia}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        accessibilityLabel={`Quitar a ${m.email}`}
+                      >
+                        <Text style={styles.botonQuitarTexto}>Quitar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.familiaDetalle}>
+                {familia.role === 'owner'
+                  ? 'Todos editan todo. Tu cuenta de Google se usa para guardar los archivos y los eventos.'
+                  : 'Todos editan todo. Los archivos y eventos se guardan en la cuenta de Google del titular.'}
+              </Text>
+
+              {familia.role === 'owner' && familia.members.length < MAX_FAMILIA && (
+                <View style={styles.bloqueInvitar}>
+                  {hayCodigo && msRestantes(familia, ahora) > 0 ? (
+                    <>
+                      <Text style={styles.familiaDetalle}>Código de invitación</Text>
+                      <Text style={styles.codigoGrande} selectable accessibilityLabel={`Código ${familia.invite_code}`}>
+                        {formatearCodigo(familia.invite_code!)}
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.botonFamilia, { borderWidth: 2, borderColor: tema.primary }]}
-                      onPress={generarCodigo}
-                      disabled={generandoCodigo}
-                    >
-                      <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar uno nuevo'}</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.familiaDetalle}>Al generar uno nuevo, el anterior deja de servir.</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.familiaDetalle}>
-                      {hayCodigo
-                        ? 'El código venció. Generá uno nuevo.'
-                        : 'Para sumar a otra persona, generá un código y pasaselo. Dura 24 horas y sirve una sola vez (para cada persona nueva, un código nuevo).'}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
-                      onPress={generarCodigo}
-                      disabled={generandoCodigo}
-                    >
-                      <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar código de invitación'}</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
+                      <Text style={styles.familiaDetalle}>
+                        {textoVencimiento(msRestantes(familia, ahora))}. Sirve una sola vez.
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
+                        onPress={copiarOCompartirCodigo}
+                      >
+                        <Text style={styles.botonTexto}>
+                          {Platform.OS === 'web' ? 'Copiar invitación' : 'Compartir invitación'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.botonFamilia, { borderWidth: 2, borderColor: tema.primary }]}
+                        onPress={generarCodigo}
+                        disabled={generandoCodigo}
+                      >
+                        <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar uno nuevo'}</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.familiaDetalle}>Al generar uno nuevo, el anterior deja de servir.</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.familiaDetalle}>
+                        {hayCodigo
+                          ? 'El código venció. Generá uno nuevo.'
+                          : 'Para sumar a otra persona, generá un código y pasaselo. Dura 24 horas y sirve una sola vez (para cada persona nueva, un código nuevo).'}
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.botonFamilia, { backgroundColor: tema.primary }]}
+                        onPress={generarCodigo}
+                        disabled={generandoCodigo}
+                      >
+                        <Text style={styles.botonTexto}>{generandoCodigo ? 'Generando…' : 'Generar código de invitación'}</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
 
-            {familia.role === 'member' ? (
-              <TouchableOpacity
-                style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
-                onPress={confirmarSalirFamilia}
-                disabled={ocupadoFamilia}
-              >
-                <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Saliendo…' : 'Salir de la familia'}</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
-                onPress={confirmarDisolverFamilia}
-                disabled={ocupadoFamilia}
-              >
-                <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Un momento…' : 'Disolver familia'}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        <View style={styles.separador} />
-        <TarjetaPapelera />
-        <View style={styles.separador} />
-        <Text style={styles.tituloSeccion}>Apariencia</Text>
-        <Text style={styles.subtituloSeccion}>Elegí los colores de la app</Text>
-        
-        <View style={styles.filaTemas}>
-          {Object.values(TEMAS).map((t) => (
-            <TouchableOpacity key={t.id} style={styles.opcionTema} onPress={() => cambiarTema(t.id as TemaId)}>
-              <View
-                style={[
-                  styles.circuloTema,
-                  { backgroundColor: t.primary },
-                  temaId === t.id && styles.circuloTemaSeleccionado,
-                ]}
-              >
-                {temaId === t.id && <Text style={styles.check}>✓</Text>}
-              </View>
-              <Text style={styles.nombreTema}>{t.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        <TouchableOpacity style={[styles.boton, { backgroundColor: tema.primary }]} onPress={() => setClaveVisible(true)}>
-          <Text style={styles.botonTexto}>Cambiar contraseña</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.boton, { backgroundColor: tema.primary }]} onPress={cerrarSesion}>
-          <Text style={styles.botonTexto}>Cerrar sesión</Text>
-        </TouchableOpacity>
-
-        {!esMiembro && (
-          <View style={styles.opcionesDrive}>
-            <Text style={[styles.opcionesDriveTitulo, { color: tema.textPrimary }]}>
-              Si eliminás tu cuenta, ¿qué pasa con tus archivos de Google Drive?
-            </Text>
-            {[
-              { valor: false, titulo: 'Conservarlos en mi Drive', detalle: 'Se borra tu cuenta de Docukids, pero la carpeta Docukids y tus archivos siguen en tu Drive.' },
-              { valor: true, titulo: 'Mandarlos a la papelera de Drive', detalle: 'Además, la carpeta Docukids de tu Drive va a la papelera de Drive. Si volvés a registrarte con la misma cuenta de Google, Docukids te ofrece recuperarla (hasta unos 30 días).' },
-            ].map((op) => {
-              const elegida = borrarDrive === op.valor;
-              return (
+              {familia.role === 'member' ? (
                 <TouchableOpacity
-                  key={String(op.valor)}
-                  style={[styles.opcionDrive, { borderColor: elegida ? tema.primary : '#bbb' }]}
-                  onPress={() => setBorrarDrive(op.valor)}
-                  disabled={eliminando}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: elegida }}
+                  style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
+                  onPress={confirmarSalirFamilia}
+                  disabled={ocupadoFamilia}
                 >
-                  <View style={[styles.radioDrive, { borderColor: elegida ? tema.primary : '#888' }]}>
-                    {elegida && <View style={[styles.radioDriveRelleno, { backgroundColor: tema.primary }]} />}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.opcionDriveTitulo, { color: tema.textPrimary }]}>{op.titulo}</Text>
-                    <Text style={[styles.opcionDriveDetalle, { color: tema.textSecondary }]}>{op.detalle}</Text>
-                  </View>
+                  <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Saliendo…' : 'Salir de la familia'}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
+              ) : (
+                <TouchableOpacity
+                  style={[styles.botonEliminar, { alignSelf: 'stretch', alignItems: 'center' }]}
+                  onPress={confirmarDisolverFamilia}
+                  disabled={ocupadoFamilia}
+                >
+                  <Text style={styles.botonEliminarTexto}>{ocupadoFamilia ? 'Un momento…' : 'Dejar de compartir'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </Seccion>
 
-        <TouchableOpacity
-          style={styles.botonEliminar}
-          onPress={confirmarEliminarCuenta}
-          disabled={eliminando}
-        >
-          <Text style={styles.botonEliminarTexto}>{eliminando ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
-        </TouchableOpacity>
+                {/* ---------- APARIENCIA ---------- */}
+        <Seccion titulo="Apariencia" subtitulo="Elegí los colores de la app">
+          <TouchableOpacity
+            style={styles.temaActual}
+            onPress={() => setVerTemas((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: verTemas }}
+            accessibilityLabel={`Tema actual: ${tema.name}. Tocá para ${verTemas ? 'cerrar' : 'cambiar'}`}
+          >
+            <View style={[styles.circuloChico, { backgroundColor: tema.primary }]} />
+            <Text style={styles.temaActualNombre}>{tema.name}</Text>
+            <Text style={styles.temaActualCambiar}>{verTemas ? 'Cerrar' : 'Cambiar'}</Text>
+            <Ionicons name={verTemas ? 'chevron-up' : 'chevron-down'} size={18} color="#3F3F3F" />
+          </TouchableOpacity>
+
+          {verTemas && (
+            <View style={styles.filaTemas}>
+              {Object.values(TEMAS).map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={styles.opcionTema}
+                  onPress={() => {
+                    cambiarTema(t.id as TemaId);
+                    setVerTemas(false);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.circuloTema,
+                      { backgroundColor: t.primary },
+                      temaId === t.id && styles.circuloTemaSeleccionado,
+                    ]}
+                  >
+                    {temaId === t.id && <Text style={styles.check}>✓</Text>}
+                  </View>
+                  <Text style={styles.nombreTema}>{t.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </Seccion>
+
+        {/* ---------- PAPELERA ---------- */}
+        <Seccion titulo="Papelera" conTarjeta={false}>
+          <TarjetaPapelera />
+        </Seccion>
       </ScrollView>
 
       <Modal visible={unirseVisible} transparent animationType="fade" onRequestClose={cerrarUnirseSiLibre} statusBarTranslucent>
@@ -811,7 +908,7 @@ export default function Ajustes() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, alignItems: 'center', gap: 16, padding: 24, paddingTop: 16, paddingBottom: 60 },
+  container: { flexGrow: 1, alignItems: 'center', gap: 24, padding: 24, paddingTop: 16, paddingBottom: 60 },
   email: { fontSize: 16, color: '#3F3F3F' },
   estadoGoogle: { fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
   botonGoogle: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
@@ -824,9 +921,8 @@ const styles = StyleSheet.create({
   codigoGrande: { fontSize: 34, fontWeight: 'bold', letterSpacing: 6, color: '#1F1F1F' },
   botonFamilia: { alignSelf: 'stretch', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   // Rojo fijo (#c62828): acciones destructivas de familia.
-  botonQuitar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  botonQuitar: { borderWidth: 2, borderColor: '#c62828', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   botonQuitarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 13 },
-  filaMiembro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   miembroEmail: { flex: 1, fontSize: 15, color: '#1F1F1F' },
   etiquetaRol: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   etiquetaRolTexto: { fontSize: 13, fontWeight: 'bold', color: '#1F1F1F' },
@@ -871,4 +967,21 @@ const styles = StyleSheet.create({
   filaModal: { flexDirection: 'row', gap: 12, marginTop: 4 },
   botonModal: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   botonEliminarTexto: { color: '#c62828', fontWeight: 'bold', fontSize: 16 },
+  seccion: { width: '100%', maxWidth: 480, gap: 8 },
+  seccionTitulo: { fontSize: 20, fontWeight: 'bold', color: '#1F1F1F' },
+  seccionSub: { fontSize: 14, color: '#3F3F3F', marginTop: -4 },
+  seccionCuerpo: { borderWidth: 2, borderRadius: 14, padding: 16, gap: 12, alignItems: 'center' },
+  seccionSinTarjeta: { gap: 12, alignItems: 'center' },
+  botonAncho: { alignSelf: 'stretch', alignItems: 'center' },
+  divisorCuenta: { alignSelf: 'stretch', height: 1, backgroundColor: '#ddd' },
+  enlaceEliminar: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
+  enlaceEliminarTexto: { fontSize: 15, color: '#3F3F3F', textDecorationLine: 'underline' },
+  familiaInterior: { alignSelf: 'stretch', gap: 10 },
+  temaActual: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  circuloChico: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: '#999' },
+  temaActualNombre: { flex: 1, fontSize: 16, fontWeight: '600', color: '#1F1F1F' },
+  temaActualCambiar: { fontSize: 15, color: '#3F3F3F', textDecorationLine: 'underline' },
+  listaMiembros: {alignSelf: 'stretch',borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: '#BDBDBD',},
+  filaMiembro: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 8,},
+  filaMiembroSeparada: {borderTopWidth: StyleSheet.hairlineWidth, borderColor: '#BDBDBD',},
 });
