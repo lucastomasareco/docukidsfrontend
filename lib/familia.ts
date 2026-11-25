@@ -150,8 +150,8 @@ export function mensajeEliminarCuenta(familia: Familia | null, borrarDrive: bool
   const sobreFamilia =
     familia?.role === 'owner'
       ? otro
-        ? `Como sos el titular, tu familia se disuelve: ${otro.email} se queda con la cuenta vacía y ya no verá nada de esto.\n\n`
-        : 'Tu familia también se disuelve.\n\n'
+        ? `Como sos el titular, tu familia deja de compartir: ${otro.email} se queda con la cuenta vacía y ya no verá nada de esto.\n\n`
+        : 'Tu familia también deja de compartir.\n\n'
       : '';
   return (
     'Se borrarán tus hijos, documentos y turnos guardados en Docukids, y tu usuario. ' +

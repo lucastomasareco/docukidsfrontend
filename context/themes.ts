@@ -1,4 +1,12 @@
-export type TemaId = 'oceano' | 'lavanda' | 'menta' | 'arcoiris';
+export type TemaId =
+  | 'oceano'
+  | 'lavanda'
+  | 'menta'
+  | 'arcoiris'
+  | 'pizarra'
+  | 'azulsobrio'
+  | 'durazno'
+  | 'atardecer';
 
 export type Tema = {
   id: TemaId;
@@ -50,6 +58,46 @@ export const TEMAS: Record<TemaId, Tema> = {
     card: '#F5F0D0',
     primary: '#F4B4B4',
     bar: '#FADADD',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
+  },
+  pizarra: {
+    id: 'pizarra',
+    name: 'Pizarra',
+    backgroundGradient: ['#CFD8DC', '#F5F7F8'],
+    card: '#FFFFFF',
+    primary: '#A9B8C0',
+    bar: '#ECEFF1',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
+  },
+  azulsobrio: {
+    id: 'azulsobrio',
+    name: 'Azul sobrio',
+    backgroundGradient: ['#C5D5E8', '#F4F7FB'],
+    card: '#FFFFFF',
+    primary: '#9FB8D6',
+    bar: '#E6EDF6',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
+  },
+  durazno: {
+    id: 'durazno',
+    name: 'Durazno',
+    backgroundGradient: ['#FFD3BC', '#FFF6E5'],
+    card: '#FFF6F0',
+    primary: '#FFB997',
+    bar: '#FFE8DA',
+    textPrimary: '#1F1F1F',
+    textSecondary: '#3F3F3F',
+  },
+  atardecer: {
+    id: 'atardecer',
+    name: 'Atardecer',
+    backgroundGradient: ['#FFD9C0', '#F9C5D8'],
+    card: '#FFF5F7',
+    primary: '#F7A8B8',
+    bar: '#FCDCE4',
     textPrimary: '#1F1F1F',
     textSecondary: '#3F3F3F',
   },
