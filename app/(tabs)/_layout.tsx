@@ -7,6 +7,7 @@ import { useChildren } from '../../context/ChildrenContext';
 import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
+import TituloHijos from '../../components/TituloHijos';
 import { migrarDriveEnSegundoPlano } from '../../lib/migrarDrive';
 import useTelefono from '../../lib/useTelefono';
 
@@ -73,7 +74,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="hijos"
-        options={{ title: 'Hijos', headerTitle: 'Mis hijos', tabBarIcon: crearIcono('hijos') }}
+        options={{ title: 'Hijos', headerTitle: () => <TituloHijos />, tabBarIcon: crearIcono('hijos') }}
       />
       <Tabs.Screen
         name="ajustes"
