@@ -5,27 +5,29 @@ import { useChildren } from '../context/ChildrenContext';
 import { useTheme } from '../context/ThemeContext';
 import useTelefono from '../lib/useTelefono';
 import {
-  MAX_TITULO_HIJOS,
-  SUGERENCIAS_TITULO_HIJOS,
-  TITULO_HIJOS_POR_DEFECTO,
-} from '../lib/tituloHijos';
+  MAX_NOMBRE_HIJOS,
+  NOMBRE_HIJOS_POR_DEFECTO,
+  SUGERENCIAS_NOMBRE_HIJOS,
+  tituloDeHijos,
+} from '../lib/nombreHijos';
 
 // Título de la pantalla Hijos, en la barra de arriba. Lleva un lápiz (como el botón "Editar")
-// y al tocarlo la persona lo cambia: "Mis hijas", "Mis peludos", "Mis abuelos"...
+// y al tocarlo la persona cambia el nombre: "Mis hijas", "Mis peludos", "Mis abuelos"...
+// El "Mis" es fijo: solo se escribe lo que va después. El mismo nombre se ve en la barra de abajo.
 // Docukids tiene un foco (el cuidado parental) pero un alcance amplio.
 export default function TituloHijos() {
-  const { tituloHijos, cambiarTituloHijos } = useChildren();
+  const { nombreHijos, cambiarNombreHijos } = useChildren();
   const { tema } = useTheme();
   const telefono = useTelefono();
   const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState(tituloHijos);
+  const [texto, setTexto] = useState(nombreHijos);
 
   const abrir = () => {
-    setTexto(tituloHijos);
+    setTexto(nombreHijos);
     setEditando(true);
   };
   const guardar = () => {
-    cambiarTituloHijos(texto);
+    cambiarNombreHijos(texto);
     setEditando(false);
   };
 
@@ -35,13 +37,13 @@ export default function TituloHijos() {
         onPress={abrir}
         style={styles.fila}
         accessibilityRole="button"
-        accessibilityLabel={`Cambiar el título "${tituloHijos}"`}
+        accessibilityLabel={`Cambiar el nombre de la pantalla "${tituloDeHijos(nombreHijos)}"`}
       >
         <Text
           numberOfLines={1}
           style={{ fontSize: telefono ? 20 : 21, fontWeight: 'bold', color: tema.textPrimary, flexShrink: 1 }}
         >
-          {tituloHijos}
+          {tituloDeHijos(nombreHijos)}
         </Text>
         <Ionicons name="pencil-outline" size={telefono ? 16 : 18} color={tema.textSecondary} />
       </TouchableOpacity>
@@ -50,20 +52,24 @@ export default function TituloHijos() {
         <View style={styles.capa}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditando(false)} accessibilityLabel="Cerrar" />
           <View style={styles.tarjeta}>
-            <Text style={styles.titulo}>¿Cómo querés llamar a esta pantalla?</Text>
-            <TextInput
-              style={styles.input}
-              value={texto}
-              onChangeText={setTexto}
-              maxLength={MAX_TITULO_HIJOS}
-              placeholder={TITULO_HIJOS_POR_DEFECTO}
-              placeholderTextColor="#5F5F5F"
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={guardar}
-            />
+            <Text style={styles.titulo}>¿Cómo querés llamarlos?</Text>
+            {/* "Mis" va fijo: la persona solo escribe lo que sigue. */}
+            <View style={styles.filaInput}>
+              <Text style={styles.prefijo}>Mis</Text>
+              <TextInput
+                style={styles.input}
+                value={texto}
+                onChangeText={setTexto}
+                maxLength={MAX_NOMBRE_HIJOS}
+                placeholder={NOMBRE_HIJOS_POR_DEFECTO}
+                placeholderTextColor="#5F5F5F"
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={guardar}
+              />
+            </View>
             <View style={styles.sugerencias}>
-              {SUGERENCIAS_TITULO_HIJOS.map((s) => (
+              {SUGERENCIAS_NOMBRE_HIJOS.map((s) => (
                 <TouchableOpacity
                   key={s}
                   style={[styles.chip, { borderColor: tema.primary }]}
@@ -93,7 +99,9 @@ const styles = StyleSheet.create({
   capa: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-start', paddingTop: 80, paddingHorizontal: 16 },
   tarjeta: { backgroundColor: '#fff', borderRadius: 12, padding: 16, width: '100%', maxWidth: 480, alignSelf: 'center', elevation: 6 },
   titulo: { fontSize: 17, fontWeight: 'bold', marginBottom: 10, color: '#1F1F1F' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 16, color: '#1F1F1F' },
+  filaInput: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  prefijo: { fontSize: 18, fontWeight: 'bold', color: '#1F1F1F' },
+  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16, color: '#1F1F1F' },
   sugerencias: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1.5 },
   chipTexto: { fontSize: 14, fontWeight: '600', color: '#1F1F1F' },

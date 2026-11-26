@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { ErrorAmigable, interpretarError } from '../lib/errores';
-import { TITULO_HIJOS_POR_DEFECTO, limpiarTituloHijos } from '../lib/tituloHijos';
+import { NOMBRE_HIJOS_POR_DEFECTO, limpiarNombreHijos } from '../lib/nombreHijos';
 
 export type Hijo = {
   id: number;
@@ -31,10 +31,10 @@ type ChildrenContextType = {
   // Candado del arrastre (se recuerda en este dispositivo / navegador).
   arrastreBloqueado: boolean;
   alternarBloqueoArrastre: () => void;
-  // Título de la pantalla Hijos ("Mis hijos" por defecto). Se recuerda en este dispositivo.
-  tituloHijos: string;
-  // Texto vacío = volver a "Mis hijos".
-  cambiarTituloHijos: (texto: string) => void;
+  // Nombre de la pantalla Hijos, sin el "Mis" ("hijos" por defecto). Se recuerda en este dispositivo.
+  nombreHijos: string;
+  // Texto vacío = volver a "hijos".
+  cambiarNombreHijos: (texto: string) => void;
 };
 
 // Orden de los hijos: SIEMPRE estable. Base = orden de creación (id); encima, el orden que la
@@ -51,7 +51,7 @@ function ordenarHijos(lista: Hijo[], orden: number[]): Hijo[] {
 // Solo se guardan en el dispositivo (igual que el orden de los documentos): no hay llamadas al servidor.
 const claveOrdenHijos = (usuarioId: string) => `docukids:ordenHijos:${usuarioId}`;
 const claveBloqueoHijos = (usuarioId: string) => `docukids:ordenHijosBloqueado:${usuarioId}`;
-const claveTituloHijos = (usuarioId: string) => `docukids:tituloHijos:${usuarioId}`;
+const claveNombreHijos = (usuarioId: string) => `docukids:nombreHijos:${usuarioId}`;
 
 const ChildrenContext = createContext<ChildrenContextType | undefined>(undefined);
 
@@ -59,7 +59,7 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   const [hijosCrudos, setHijosCrudos] = useState<Hijo[]>([]);
   const [orden, setOrden] = useState<number[]>([]);
   const [arrastreBloqueado, setArrastreBloqueado] = useState(false);
-  const [tituloHijos, setTituloHijos] = useState(TITULO_HIJOS_POR_DEFECTO);
+  const [nombreHijos, setNombreHijos] = useState(NOMBRE_HIJOS_POR_DEFECTO);
   // Para qué usuario ya se leyó lo guardado (evita pisar los datos de uno con los de otro).
   const [ordenCargadoPara, setOrdenCargadoPara] = useState<string | null>(null);
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
@@ -108,23 +108,23 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setOrden([]);
     setArrastreBloqueado(false);
-    setTituloHijos(TITULO_HIJOS_POR_DEFECTO);
+    setNombreHijos(NOMBRE_HIJOS_POR_DEFECTO);
     setOrdenCargadoPara(null);
     if (!usuarioId) return;
     let vigente = true;
     Promise.all([
       AsyncStorage.getItem(claveOrdenHijos(usuarioId)),
       AsyncStorage.getItem(claveBloqueoHijos(usuarioId)),
-      AsyncStorage.getItem(claveTituloHijos(usuarioId)),
+      AsyncStorage.getItem(claveNombreHijos(usuarioId)),
     ])
-      .then(([textoOrden, textoBloqueo, textoTitulo]) => {
+      .then(([textoOrden, textoBloqueo, textoNombre]) => {
         if (!vigente) return;
         try {
           const crudo = textoOrden ? JSON.parse(textoOrden) : [];
           if (Array.isArray(crudo)) setOrden(crudo.filter((n: unknown) => typeof n === 'number'));
         } catch {}
         setArrastreBloqueado(textoBloqueo === '1');
-        setTituloHijos(limpiarTituloHijos(textoTitulo));
+        setNombreHijos(limpiarNombreHijos(textoNombre));
         setOrdenCargadoPara(usuarioId);
       })
       .catch(() => {
@@ -146,12 +146,12 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
   }, [arrastreBloqueado, ordenCargadoPara, usuarioId]);
   useEffect(() => {
     if (!usuarioId || ordenCargadoPara !== usuarioId) return;
-    AsyncStorage.setItem(claveTituloHijos(usuarioId), tituloHijos).catch(() => {});
-  }, [tituloHijos, ordenCargadoPara, usuarioId]);
+    AsyncStorage.setItem(claveNombreHijos(usuarioId), nombreHijos).catch(() => {});
+  }, [nombreHijos, ordenCargadoPara, usuarioId]);
 
   const colocarOrdenHijos = useCallback((ids: number[]) => setOrden(ids), []);
   const alternarBloqueoArrastre = useCallback(() => setArrastreBloqueado((b) => !b), []);
-  const cambiarTituloHijos = useCallback((texto: string) => setTituloHijos(limpiarTituloHijos(texto)), []);
+  const cambiarNombreHijos = useCallback((texto: string) => setNombreHijos(limpiarNombreHijos(texto)), []);
 
   const agregarHijo = useCallback(
     async (nombre: string, avatarUrl?: string | null) => {
@@ -213,8 +213,8 @@ export function ChildrenProvider({ children }: { children: ReactNode }) {
         colocarOrdenHijos,
         arrastreBloqueado,
         alternarBloqueoArrastre,
-        tituloHijos,
-        cambiarTituloHijos,
+        nombreHijos,
+        cambiarNombreHijos,
       }}
     >
       {children}

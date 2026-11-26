@@ -8,6 +8,7 @@ import { AyudaProvider } from '../../context/AyudaContext';
 import BotonAyuda from '../../components/BotonAyuda';
 import PanelAyuda from '../../components/PanelAyuda';
 import TituloHijos from '../../components/TituloHijos';
+import { etiquetaPestanaHijos } from '../../lib/nombreHijos';
 import { migrarDriveEnSegundoPlano } from '../../lib/migrarDrive';
 import useTelefono from '../../lib/useTelefono';
 
@@ -31,7 +32,7 @@ function crearIcono(pantalla: keyof typeof ICONOS) {
 export default function TabsLayout() {
   const { tema } = useTheme();
   const telefono = useTelefono();
-  const { hijos, seleccionadoId } = useChildren();
+  const { hijos, seleccionadoId, nombreHijos } = useChildren();
   // Con un hijo elegido, el título de la barra lleva su nombre. Si no hay, el título de siempre.
   const nombreHijo = hijos.find((h) => h.id === seleccionadoId)?.name;
 
@@ -74,7 +75,8 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="hijos"
-        options={{ title: 'Hijos', headerTitle: () => <TituloHijos />, tabBarIcon: crearIcono('hijos') }}
+        /* El nombre de la pestaña de abajo sigue al que la persona eligió ("Hijos" por defecto). */
+        options={{ title: etiquetaPestanaHijos(nombreHijos), headerTitle: () => <TituloHijos />, tabBarIcon: crearIcono('hijos') }}
       />
       <Tabs.Screen
         name="ajustes"
